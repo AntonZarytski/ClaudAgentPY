@@ -22,7 +22,8 @@ from constants import (
     HTTP_OK,
     HTTP_BAD_REQUEST,
     HTTP_INTERNAL_SERVER_ERROR,
-    ERROR_EMPTY_MESSAGE
+    ERROR_EMPTY_MESSAGE,
+    MAX_TOKENS
 )
 from logger import setup_logging, get_logger
 from claude_client import ClaudeClient
@@ -76,12 +77,15 @@ def chat() -> Tuple[Response, int]:
     """
     Обрабатывает запросы к чат API.
 
-    Принимает сообщение пользователя и формат вывода,
+    Принимает сообщение пользователя и параметры настроек,
     отправляет запрос к Claude API и возвращает ответ.
 
     Request JSON:
         message (str): Сообщение пользователя
         output_format (str, optional): Формат вывода ('default', 'json', 'xml')
+        max_tokens (int, optional): Максимальное количество токенов (128-4096)
+        spec_mode (bool, optional): Режим сбора уточняющих данных
+        conversation_history (list, optional): История диалога
 
     Returns:
         JSON ответ с полем 'reply' или 'error' и HTTP код статуса
@@ -95,11 +99,37 @@ def chat() -> Tuple[Response, int]:
     if not is_valid:
         return jsonify({'error': error_message}), HTTP_BAD_REQUEST
 
+    # Извлекаем параметры из запроса
     user_message = data.get('message', '')
     output_format = data.get('output_format', 'default')
 
+    # Получаем max_tokens с валидацией диапазона
+    max_tokens = data.get('max_tokens', MAX_TOKENS)
+    if isinstance(max_tokens, int):
+        max_tokens = max(128, min(4096, max_tokens))  # Ограничиваем диапазон
+    else:
+        max_tokens = MAX_TOKENS
+
+    # Получаем spec_mode
+    spec_mode = data.get('spec_mode', False)
+    if not isinstance(spec_mode, bool):
+        spec_mode = False
+
+    # Получаем историю диалога
+    conversation_history = data.get('conversation_history', [])
+    if not isinstance(conversation_history, list):
+        conversation_history = []
+
+    logger.info(f"Параметры: format={output_format}, max_tokens={max_tokens}, spec_mode={spec_mode}, history_len={len(conversation_history)}")
+
     # Отправляем запрос к Claude API
-    reply, error, status_code = claude_client.send_message(user_message, output_format)
+    reply, error, status_code = claude_client.send_message(
+        user_message=user_message,
+        output_format=output_format,
+        max_tokens=max_tokens,
+        spec_mode=spec_mode,
+        conversation_history=conversation_history
+    )
 
     # Возвращаем результат
     if error:

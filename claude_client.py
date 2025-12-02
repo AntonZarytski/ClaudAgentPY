@@ -7,7 +7,7 @@
 
 import os
 import traceback
-from typing import Dict, Tuple, Optional
+from typing import Dict, Tuple, Optional, List
 
 from anthropic import Anthropic, APIError, APIConnectionError, RateLimitError, AuthenticationError
 
@@ -27,7 +27,7 @@ from constants import (
     HTTP_INTERNAL_SERVER_ERROR,
     HTTP_SERVICE_UNAVAILABLE
 )
-from prompts import get_system_prompt, get_user_message
+from prompts import get_system_prompt, get_user_message, SPEC_END_MARKER
 from logger import get_logger
 
 logger = get_logger(__name__)
@@ -84,17 +84,21 @@ class ClaudeClient:
         user_message: str,
         output_format: str = OUTPUT_FORMAT_DEFAULT,
         model: str = CLAUDE_MODEL,
-        max_tokens: int = MAX_TOKENS
+        max_tokens: int = MAX_TOKENS,
+        spec_mode: bool = False,
+        conversation_history: Optional[List[Dict[str, str]]] = None
     ) -> Tuple[Optional[str], Optional[Dict], int]:
         """
         Отправляет сообщение в Claude API и возвращает ответ.
-        
+
         Args:
             user_message: Сообщение пользователя
             output_format: Формат вывода ('default', 'json', 'xml')
             model: Модель Claude для использования
             max_tokens: Максимальное количество токенов в ответе
-            
+            spec_mode: Режим сбора уточняющих данных (True/False)
+            conversation_history: История диалога (список сообщений с role и content)
+
         Returns:
             Кортеж из (ответ, ошибка, HTTP код):
             - ответ: Текст ответа от Claude или None при ошибке
@@ -104,15 +108,18 @@ class ClaudeClient:
         try:
             logger.info(f"Сообщение пользователя: {user_message[:MAX_MESSAGE_LOG_LENGTH]}...")
             logger.info(f"Запрошенный формат вывода: {output_format}")
-            
+            logger.info(f"Режим spec: {spec_mode}")
+            logger.info(f"Max tokens: {max_tokens}")
+            logger.info(f"История диалога: {len(conversation_history or [])} сообщений")
+
             # Валидация формата
             if not self.validate_output_format(output_format):
                 logger.warning(f"Неподдерживаемый формат: {output_format}, используется default")
                 output_format = OUTPUT_FORMAT_DEFAULT
-            
-            # Получаем системный промпт для выбранного формата
+
+            # Получаем системный промпт для выбранного формата и режима
             try:
-                system_prompt = get_system_prompt(output_format)
+                system_prompt = get_system_prompt(output_format, spec_mode)
             except ValueError as e:
                 logger.error(f"Ошибка получения системного промпта: {str(e)}")
                 return None, {'error': str(e)}, HTTP_INTERNAL_SERVER_ERROR
@@ -126,23 +133,43 @@ class ClaudeClient:
                 'json': 'форматом JSON',
                 'xml': 'форматом XML'
             }
-            logger.info(f"Отправка запроса к Claude API с {format_names.get(output_format, 'неизвестным форматом')}...")
+            mode_str = " (spec mode)" if spec_mode else ""
+            logger.info(f"Отправка запроса к Claude API с {format_names.get(output_format, 'неизвестным форматом')}{mode_str}...")
             logger.debug(f"Системный промпт: {system_prompt[:100]}...")
 
-            # Отправляем запрос к API с разделением system и messages
-            # system - системные инструкции (роль, формат ответа)
-            # messages - только сообщения пользователя и ассистента
-            message = self.client.messages.create(
-                model=model,
-                max_tokens=max_tokens,
-                system=system_prompt,
-                messages=[
-                    {
-                        "role": "user",
-                        "content": clean_user_message
-                    }
-                ]
-            )
+            # Формируем массив сообщений с историей
+            messages = []
+
+            # Добавляем историю диалога (если есть)
+            if conversation_history:
+                for msg in conversation_history:
+                    if msg.get('role') in ('user', 'assistant') and msg.get('content'):
+                        messages.append({
+                            "role": msg['role'],
+                            "content": msg['content']
+                        })
+
+            # Добавляем текущее сообщение пользователя
+            messages.append({
+                "role": "user",
+                "content": clean_user_message
+            })
+
+            # Формируем параметры запроса
+            api_params = {
+                "model": model,
+                "max_tokens": max_tokens,
+                "system": system_prompt,
+                "messages": messages
+            }
+
+            # Добавляем stop_sequences для spec mode
+            if spec_mode:
+                api_params["stop_sequences"] = [SPEC_END_MARKER]
+                logger.debug(f"Добавлен stop_sequence: {SPEC_END_MARKER}")
+
+            # Отправляем запрос к API
+            message = self.client.messages.create(**api_params)
             
             # Извлекаем ответ
             raw_reply = message.content[0].text

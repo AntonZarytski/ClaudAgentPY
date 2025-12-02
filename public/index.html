@@ -206,6 +206,7 @@
           background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
           color: white;
           box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+          white-space: pre-wrap;
         }
 
         .message.assistant {
@@ -218,17 +219,17 @@
         .input-group {
           display: flex;
           gap: 12px;
-          padding: 24px;
+          padding: 16px 24px;
           background: white;
           border-top: 1px solid rgba(0, 0, 0, 0.06);
-          flex-wrap: wrap;
+          align-items: flex-end;
         }
 
         .input-row {
           display: flex;
           gap: 12px;
           flex: 1;
-          width: 100%;
+          align-items: flex-end;
         }
 
         .format-selector {
@@ -268,18 +269,24 @@
           border-color: #d1d5db;
         }
 
-        input {
+        textarea#input {
           flex: 1;
           padding: 16px 20px;
           border: 2px solid #e5e7eb;
-          border-radius: 28px;
+          border-radius: 20px;
           font-size: 15px;
           outline: none;
           transition: all 0.3s ease;
           background: #f9fafb;
+          resize: none;
+          min-height: 52px;
+          max-height: 150px;
+          line-height: 1.4;
+          font-family: inherit;
+          overflow-y: auto;
         }
 
-        input:focus {
+        textarea#input:focus {
           border-color: #6366f1;
           background: white;
           box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
@@ -468,6 +475,319 @@
           }
         }
 
+        /* Settings Button - в левом нижнем углу */
+        .settings-btn {
+          background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+          border: none;
+          font-size: 20px;
+          cursor: pointer;
+          padding: 12px;
+          border-radius: 50%;
+          transition: all 0.3s ease;
+          box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+          width: 48px;
+          height: 48px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+        }
+
+        .settings-btn:hover {
+          transform: rotate(45deg) scale(1.05);
+          box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
+        }
+
+        .settings-btn::before {
+          display: none;
+        }
+
+        /* Settings Panel - внутри контейнера, выезжает слева */
+        .settings-panel {
+          position: absolute;
+          top: 0;
+          left: -320px;
+          width: 320px;
+          height: 100%;
+          background: white;
+          box-shadow: 5px 0 20px rgba(0, 0, 0, 0.1);
+          transition: left 0.3s ease;
+          z-index: 50;
+          display: flex;
+          flex-direction: column;
+          border-right: 1px solid rgba(0, 0, 0, 0.08);
+        }
+
+        .settings-panel.active {
+          left: 0;
+        }
+
+        .settings-header {
+          background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #d946ef 100%);
+          color: white;
+          padding: 20px 24px;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+
+        .settings-header h2 {
+          font-size: 20px;
+          font-weight: 600;
+          margin: 0;
+        }
+
+        .close-btn {
+          background: transparent;
+          border: none;
+          color: white;
+          font-size: 28px;
+          cursor: pointer;
+          padding: 4px 8px;
+          border-radius: 8px;
+          transition: background 0.2s;
+          box-shadow: none;
+        }
+
+        .close-btn:hover {
+          background: rgba(255, 255, 255, 0.2);
+          box-shadow: none;
+          transform: none;
+        }
+
+        .close-btn::before {
+          display: none;
+        }
+
+        .settings-content {
+          flex: 1;
+          padding: 24px;
+          overflow-y: auto;
+        }
+
+        .setting-group {
+          margin-bottom: 28px;
+        }
+
+        .setting-group label {
+          display: block;
+          font-size: 14px;
+          font-weight: 600;
+          color: #374151;
+          margin-bottom: 10px;
+        }
+
+        .setting-group select {
+          width: 100%;
+          padding: 12px 16px;
+        }
+
+        /* Slider styles */
+        .slider-container {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+
+        .slider-value {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+
+        .slider-value span {
+          font-size: 13px;
+          color: #6b7280;
+        }
+
+        .slider-value .current-value {
+          font-weight: 600;
+          color: #6366f1;
+          font-size: 16px;
+        }
+
+        input[type="range"] {
+          width: 100%;
+          height: 8px;
+          border-radius: 4px;
+          background: #e5e7eb;
+          outline: none;
+          -webkit-appearance: none;
+          cursor: pointer;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+          -webkit-appearance: none;
+          width: 20px;
+          height: 20px;
+          border-radius: 50%;
+          background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+          cursor: pointer;
+          box-shadow: 0 2px 6px rgba(99, 102, 241, 0.4);
+          transition: transform 0.2s;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+          transform: scale(1.1);
+        }
+
+        input[type="range"]::-moz-range-thumb {
+          width: 20px;
+          height: 20px;
+          border-radius: 50%;
+          background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+          cursor: pointer;
+          border: none;
+          box-shadow: 0 2px 6px rgba(99, 102, 241, 0.4);
+        }
+
+        /* Checkbox styles */
+        .checkbox-container {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          cursor: pointer;
+          padding: 12px 16px;
+          background: #f9fafb;
+          border-radius: 12px;
+          border: 2px solid #e5e7eb;
+          transition: all 0.2s;
+        }
+
+        .checkbox-container:hover {
+          border-color: #6366f1;
+          background: #f5f3ff;
+        }
+
+        .checkbox-container input[type="checkbox"] {
+          width: 20px;
+          height: 20px;
+          accent-color: #6366f1;
+          cursor: pointer;
+        }
+
+        .checkbox-container .checkbox-label {
+          font-size: 14px;
+          color: #374151;
+          font-weight: 500;
+        }
+
+        .checkbox-container .checkbox-desc {
+          font-size: 12px;
+          color: #6b7280;
+          margin-top: 4px;
+        }
+
+        .setting-hint {
+          font-size: 12px;
+          color: #9ca3af;
+          margin-top: 8px;
+          line-height: 1.4;
+        }
+
+        .clear-history-btn {
+          width: 100%;
+          padding: 12px 16px;
+          background: #fee2e2;
+          color: #dc2626;
+          border: 2px solid #fecaca;
+          border-radius: 12px;
+          font-size: 14px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: all 0.2s;
+          box-shadow: none;
+        }
+
+        .clear-history-btn:hover {
+          background: #fecaca;
+          border-color: #f87171;
+          box-shadow: none;
+          transform: none;
+        }
+
+        .clear-history-btn::before {
+          display: none;
+        }
+
+        /* Markdown стили для ответов */
+        .message.assistant .markdown-content {
+          line-height: 1.6;
+        }
+
+        .message.assistant .markdown-content p {
+          margin: 0 0 12px 0;
+        }
+
+        .message.assistant .markdown-content p:last-child {
+          margin-bottom: 0;
+        }
+
+        .message.assistant .markdown-content strong {
+          font-weight: 600;
+        }
+
+        .message.assistant .markdown-content em {
+          font-style: italic;
+        }
+
+        .message.assistant .markdown-content code {
+          background: rgba(0, 0, 0, 0.05);
+          padding: 2px 6px;
+          border-radius: 4px;
+          font-family: Menlo, Monaco, Consolas, monospace;
+          font-size: 0.9em;
+        }
+
+        .message.assistant .markdown-content pre {
+          background: #1e1e1e;
+          color: #d4d4d4;
+          padding: 16px;
+          border-radius: 8px;
+          overflow-x: auto;
+          margin: 12px 0;
+        }
+
+        .message.assistant .markdown-content pre code {
+          background: none;
+          padding: 0;
+          color: inherit;
+        }
+
+        .message.assistant .markdown-content ul,
+        .message.assistant .markdown-content ol {
+          margin: 12px 0;
+          padding-left: 24px;
+        }
+
+        .message.assistant .markdown-content li {
+          margin: 4px 0;
+        }
+
+        .message.assistant .markdown-content h1,
+        .message.assistant .markdown-content h2,
+        .message.assistant .markdown-content h3 {
+          margin: 16px 0 8px 0;
+          font-weight: 600;
+        }
+
+        .message.assistant .markdown-content h1 { font-size: 1.4em; }
+        .message.assistant .markdown-content h2 { font-size: 1.2em; }
+        .message.assistant .markdown-content h3 { font-size: 1.1em; }
+
+        .message.assistant .markdown-content blockquote {
+          border-left: 3px solid #6366f1;
+          margin: 12px 0;
+          padding-left: 16px;
+          color: #6b7280;
+        }
+
+        /* Container должен быть relative для позиционирования панели */
+        .container {
+          position: relative;
+          overflow: hidden;
+        }
+
         /* Responsive */
         @media (max-width: 768px) {
           .container {
@@ -477,7 +797,7 @@
           }
 
           #chat {
-            height: calc(100vh - 250px);
+            height: calc(100vh - 180px);
           }
 
           .header h1 {
@@ -489,23 +809,81 @@
           }
 
           .input-group {
+            gap: 8px;
+            padding: 12px 16px;
+          }
+
+          .input-row {
             flex-direction: column;
-            gap: 12px;
+            gap: 8px;
           }
 
-          .format-selector {
+          .settings-btn {
+            width: 44px;
+            height: 44px;
+            font-size: 18px;
+          }
+
+          .settings-panel {
             width: 100%;
-            justify-content: space-between;
-          }
-
-          select {
-            flex: 1;
+            left: -100%;
           }
         }
     </style>
 </head>
 <body>
 <div class="container">
+    <!-- Settings Panel - внутри контейнера -->
+    <div class="settings-panel" id="settingsPanel">
+        <div class="settings-header">
+            <h2>⚙️ Настройки</h2>
+            <button class="close-btn" onclick="closeSettings()">×</button>
+        </div>
+        <div class="settings-content">
+            <!-- Формат ответа -->
+            <div class="setting-group">
+                <label>📋 Формат ответа</label>
+                <select id="outputFormat">
+                    <option value="default">Обычный текст</option>
+                    <option value="json">JSON</option>
+                    <option value="xml">XML</option>
+                </select>
+                <p class="setting-hint">Выберите формат, в котором Claude будет отвечать</p>
+            </div>
+
+            <!-- Max Tokens -->
+            <div class="setting-group">
+                <label>📊 Максимум токенов</label>
+                <div class="slider-container">
+                    <div class="slider-value">
+                        <span>128</span>
+                        <span class="current-value" id="maxTokensValue">1024</span>
+                        <span>4096</span>
+                    </div>
+                    <input type="range" id="maxTokens" min="128" max="4096" step="64" value="1024">
+                </div>
+                <p class="setting-hint">Максимальная длина ответа Claude. Больше токенов = длиннее ответ</p>
+            </div>
+
+            <!-- Spec Mode -->
+            <div class="setting-group">
+                <label>🎯 Режим работы</label>
+                <label class="checkbox-container">
+                    <input type="checkbox" id="specMode">
+                    <div>
+                        <div class="checkbox-label">Собирать уточняющие данные</div>
+                        <div class="checkbox-desc">Claude будет задавать вопросы для лучшего понимания задачи</div>
+                    </div>
+                </label>
+            </div>
+
+            <!-- Кнопка очистки истории -->
+            <div class="setting-group">
+                <button class="clear-history-btn" onclick="clearHistory()">🗑️ Очистить историю</button>
+            </div>
+        </div>
+    </div>
+
     <div class="header">
         <h1>
             Claude AI Chat
@@ -514,36 +892,88 @@
     </div>
     <div id="chat"></div>
     <div class="input-group">
-        <div class="format-selector">
-            <label for="outputFormat">📋 Формат:</label>
-            <select id="outputFormat">
-                <option value="default">Обычный текст</option>
-                <option value="json">JSON</option>
-                <option value="xml">XML</option>
-            </select>
-        </div>
         <div class="input-row">
-            <input
+            <textarea
                     id="input"
-                    type="text"
-                    placeholder="Введите ваше сообщение..."
-                    onkeypress="if(event.key==='Enter') sendMessage()"
+                    placeholder="Введите ваше сообщение... (Shift+Enter для новой строки)"
+                    rows="1"
                     autocomplete="off"
-            >
+            ></textarea>
             <button onclick="sendMessage()" id="sendBtn">
                 <span style="position: relative; z-index: 1;">✨ Отправить</span>
             </button>
+            <button class="settings-btn" onclick="toggleSettings()" title="Настройки">⚙️</button>
         </div>
     </div>
 </div>
 
+<!-- Marked.js для рендеринга Markdown -->
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
 <script>
+    // DOM Elements
     const chat = document.getElementById('chat');
     const input = document.getElementById('input');
     const sendBtn = document.getElementById('sendBtn');
     const outputFormat = document.getElementById('outputFormat');
+    const maxTokensSlider = document.getElementById('maxTokens');
+    const maxTokensValue = document.getElementById('maxTokensValue');
+    const specModeCheckbox = document.getElementById('specMode');
+    const settingsPanel = document.getElementById('settingsPanel');
 
-    function addMessage(role, content) {
+    // История диалога
+    let conversationHistory = [];
+
+    // Настройка marked.js
+    marked.setOptions({
+      breaks: true,
+      gfm: true
+    });
+
+    // Settings Panel Functions
+    function openSettings() {
+      settingsPanel.classList.add('active');
+    }
+
+    function closeSettings() {
+      settingsPanel.classList.remove('active');
+    }
+
+    function toggleSettings() {
+      settingsPanel.classList.toggle('active');
+    }
+
+    // Очистка истории
+    function clearHistory() {
+      conversationHistory = [];
+      chat.innerHTML = '';
+      addMessage('assistant', 'История очищена. Начнём новый диалог! 🙂', false);
+      closeSettings();
+    }
+
+    // Update max tokens display
+    maxTokensSlider.addEventListener('input', () => {
+      maxTokensValue.textContent = maxTokensSlider.value;
+    });
+
+    // Автоматическое изменение высоты textarea
+    function autoResizeTextarea() {
+      input.style.height = 'auto';
+      input.style.height = Math.min(input.scrollHeight, 150) + 'px';
+    }
+
+    input.addEventListener('input', autoResizeTextarea);
+
+    // Get current settings
+    function getSettings() {
+      return {
+        output_format: outputFormat.value,
+        max_tokens: parseInt(maxTokensSlider.value, 10),
+        spec_mode: specModeCheckbox.checked
+      };
+    }
+
+    function addMessage(role, content, addToHistory = true) {
       const wrapper = document.createElement('div');
       wrapper.className = `message-wrapper ${role}`;
 
@@ -555,12 +985,62 @@
       message.className = `message ${role}`;
 
       if (typeof content === 'string') {
-        message.textContent = content;
+        // Для assistant в default формате — рендерим Markdown
+        if (role === 'assistant' && outputFormat.value === 'default') {
+          const markdownDiv = document.createElement('div');
+          markdownDiv.className = 'markdown-content';
+          markdownDiv.innerHTML = marked.parse(content);
+          message.appendChild(markdownDiv);
+        } else {
+          message.textContent = content;
+        }
+
+        // Добавляем в историю
+        if (addToHistory && (role === 'user' || role === 'assistant')) {
+          conversationHistory.push({ role, content });
+        }
       } else if (content instanceof Node) {
         message.appendChild(content);
       } else {
         message.textContent = String(content);
       }
+
+      wrapper.appendChild(avatar);
+      wrapper.appendChild(message);
+      chat.appendChild(wrapper);
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    function addAssistantMessage(content, format) {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'message-wrapper assistant';
+
+      const avatar = document.createElement('div');
+      avatar.className = 'avatar assistant';
+      avatar.textContent = '🤖';
+
+      const message = document.createElement('div');
+      message.className = 'message assistant';
+
+      if (format === 'json' || format === 'xml') {
+        // Для JSON/XML — показываем в pre
+        const pre = document.createElement('pre');
+        pre.style.whiteSpace = 'pre-wrap';
+        pre.style.fontFamily = 'Menlo, Monaco, Consolas, "Courier New", monospace';
+        pre.style.fontSize = '13px';
+        pre.style.margin = '0';
+        pre.textContent = content;
+        message.appendChild(pre);
+      } else {
+        // Для default — рендерим Markdown
+        const markdownDiv = document.createElement('div');
+        markdownDiv.className = 'markdown-content';
+        markdownDiv.innerHTML = marked.parse(content);
+        message.appendChild(markdownDiv);
+      }
+
+      // Добавляем в историю
+      conversationHistory.push({ role: 'assistant', content });
 
       wrapper.appendChild(avatar);
       wrapper.appendChild(message);
@@ -606,17 +1086,21 @@
 
     async function sendMessage() {
       const text = input.value.trim();
-      const format = outputFormat.value;
       if (!text) return;
+
+      // Получаем текущие настройки
+      const settings = getSettings();
+      console.log('Настройки:', settings);
+      console.log('История:', conversationHistory.length, 'сообщений');
 
       // Добавляем сообщение пользователя
       addMessage('user', text);
       input.value = '';
+      input.style.height = 'auto';
 
       // Блокируем интерфейс и показываем индикатор загрузки
       input.disabled = true;
       sendBtn.disabled = true;
-      outputFormat.disabled = true;
       showLoadingIndicator();
 
       try {
@@ -625,7 +1109,10 @@
           headers: {'Content-Type': 'application/json'},
           body: JSON.stringify({
             message: text,
-            output_format: format
+            output_format: settings.output_format,
+            max_tokens: settings.max_tokens,
+            spec_mode: settings.spec_mode,
+            conversation_history: conversationHistory.slice(0, -1) // Без последнего (текущего) сообщения
           })
         });
 
@@ -636,35 +1123,26 @@
         hideLoadingIndicator();
 
         if (data.error) {
-          addMessage('assistant', '❌ ' + data.error);
+          addMessage('assistant', '❌ ' + data.error, false);
         } else if (data.reply) {
-          // Показываем ответ в сыром виде
-          const pre = document.createElement('pre');
-          pre.style.whiteSpace = 'pre-wrap';
-          pre.style.fontFamily = 'Menlo, Monaco, Consolas, "Courier New", monospace';
-          pre.style.fontSize = '13px';
-          pre.style.margin = '0';
-          pre.textContent = data.reply;
-
-          addMessage('assistant', pre);
+          addAssistantMessage(data.reply, settings.output_format);
         } else {
-          addMessage('assistant', '🤖 Неожиданный формат ответа от сервера');
+          addMessage('assistant', '🤖 Неожиданный формат ответа от сервера', false);
         }
       } catch (err) {
         console.error(err);
-        // Скрываем индикатор загрузки даже при ошибке
         hideLoadingIndicator();
-        addMessage('assistant', '❌ Ошибка сети или сервера');
+        addMessage('assistant', '❌ Ошибка сети или сервера', false);
       } finally {
-        // Разблокируем интерфейс
         input.disabled = false;
         sendBtn.disabled = false;
-        outputFormat.disabled = false;
         input.focus();
       }
     }
 
+    // Event Listeners
     sendBtn.addEventListener('click', sendMessage);
+
     input.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
@@ -672,8 +1150,15 @@
       }
     });
 
-    // Приветственное сообщение
-    addMessage('assistant', 'Привет! Я твой локальный Claude-агент. Спроси что-нибудь 🙂');
+    // Close settings on Escape key
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        closeSettings();
+      }
+    });
+
+    // Приветственное сообщение (не добавляем в историю)
+    addMessage('assistant', 'Привет! Я твой локальный Claude-агент. Нажми ⚙️ для настроек. Спроси что-нибудь 🙂', false);
     input.focus();
 </script>
 </body>
