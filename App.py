@@ -1,120 +1,139 @@
-import os
-import logging
-import traceback
-from datetime import datetime
+"""
+Flask приложение для чат-бота на основе Claude API.
 
-from flask import Flask, request, jsonify, send_from_directory
-from anthropic import Anthropic, APIError, APIConnectionError, RateLimitError, AuthenticationError
+Это приложение предоставляет веб-интерфейс для взаимодействия с Claude AI
+с поддержкой различных форматов вывода (текст, JSON, XML).
+"""
+
+import os
+from datetime import datetime
+from typing import Tuple, Dict, Any
+
+from flask import Flask, request, jsonify, send_from_directory, Response
 from dotenv import load_dotenv
 
-# Настройка логирования
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler('app.log'),
-        logging.StreamHandler()
-    ]
+from constants import (
+    DEFAULT_PORT,
+    DEFAULT_HOST,
+    DEBUG_MODE,
+    STATIC_FOLDER,
+    STATIC_URL_PATH,
+    INDEX_FILE,
+    HTTP_OK,
+    HTTP_BAD_REQUEST,
+    HTTP_INTERNAL_SERVER_ERROR,
+    ERROR_EMPTY_MESSAGE
 )
-logger = logging.getLogger(__name__)
+from logger import setup_logging, get_logger
+from claude_client import ClaudeClient
 
+# Загрузка переменных окружения
 load_dotenv()
 
-app = Flask(__name__, static_folder='public', static_url_path='')
+# Настройка логирования
+setup_logging()
+logger = get_logger(__name__)
 
-# Проверка наличия API ключа
-api_key = os.environ.get("ANTHROPIC_API_KEY")
-if not api_key:
-    logger.error("ANTHROPIC_API_KEY не найден в переменных окружения!")
-    raise ValueError("ANTHROPIC_API_KEY не установлен")
+# Инициализация Flask приложения
+app = Flask(__name__, static_folder=STATIC_FOLDER, static_url_path=STATIC_URL_PATH)
 
-logger.info(f"API ключ загружен: {api_key[:10]}...{api_key[-4:] if len(api_key) > 14 else ''}")
+# Инициализация Claude клиента
+claude_client = ClaudeClient()
 
-try:
-    client = Anthropic(api_key=api_key)
-    logger.info("Anthropic клиент успешно инициализирован")
-except Exception as e:
-    logger.error(f"Ошибка инициализации Anthropic клиента: {str(e)}")
-    raise
 
 @app.route('/')
-def index():
-    return send_from_directory('public', 'index.html')
+def index() -> Response:
+    """
+    Отдает главную страницу приложения.
+
+    Returns:
+        HTML страница с интерфейсом чата
+    """
+    return send_from_directory(STATIC_FOLDER, INDEX_FILE)
+
+
+def validate_chat_request(data: Dict[str, Any]) -> Tuple[bool, str]:
+    """
+    Валидирует данные запроса к /api/chat.
+
+    Args:
+        data: Данные запроса
+
+    Returns:
+        Кортеж (валидность, сообщение об ошибке)
+    """
+    user_message = data.get('message', '')
+
+    if not user_message:
+        logger.warning("Получено пустое сообщение")
+        return False, ERROR_EMPTY_MESSAGE
+
+    return True, ""
+
 
 @app.route('/api/chat', methods=['POST'])
-def chat():
-    try:
-        logger.info("Получен запрос на /api/chat")
-        data = request.get_json()
-        user_message = data.get('message', '')
+def chat() -> Tuple[Response, int]:
+    """
+    Обрабатывает запросы к чат API.
 
-        logger.info(f"Сообщение пользователя: {user_message[:100]}...")
+    Принимает сообщение пользователя и формат вывода,
+    отправляет запрос к Claude API и возвращает ответ.
 
-        if not user_message:
-            logger.warning("Получено пустое сообщение")
-            return jsonify({'error': 'Пустое сообщение'}), 400
+    Request JSON:
+        message (str): Сообщение пользователя
+        output_format (str, optional): Формат вывода ('default', 'json', 'xml')
 
-        logger.info("Отправка запроса к Claude API...")
-        message = client.messages.create(
-            model="claude-sonnet-4-20250514",
-            max_tokens=1024,
-            messages=[
-                {"role": "user", "content": user_message}
-            ]
-        )
+    Returns:
+        JSON ответ с полем 'reply' или 'error' и HTTP код статуса
+    """
+    logger.info("Получен запрос на /api/chat")
 
-        reply = message.content[0].text
-        logger.info(f"Получен ответ от Claude: {reply[:100]}...")
-        return jsonify({'reply': reply})
+    # Получаем и валидируем данные запроса
+    data = request.get_json() or {}
+    is_valid, error_message = validate_chat_request(data)
 
-    except AuthenticationError as e:
-        error_msg = f"Ошибка аутентификации API: {str(e)}"
-        logger.error(error_msg)
-        logger.error(traceback.format_exc())
-        return jsonify({'error': 'Неверный API ключ Claude'}), 500
+    if not is_valid:
+        return jsonify({'error': error_message}), HTTP_BAD_REQUEST
 
-    except RateLimitError as e:
-        error_msg = f"Превышен лимит запросов: {str(e)}"
-        logger.error(error_msg)
-        logger.error(traceback.format_exc())
-        return jsonify({'error': 'Превышен лимит запросов к Claude API'}), 429
+    user_message = data.get('message', '')
+    output_format = data.get('output_format', 'default')
 
-    except APIConnectionError as e:
-        error_msg = f"Ошибка соединения с API: {str(e)}"
-        logger.error(error_msg)
-        logger.error(traceback.format_exc())
-        return jsonify({'error': 'Не удалось подключиться к Claude API'}), 503
+    # Отправляем запрос к Claude API
+    reply, error, status_code = claude_client.send_message(user_message, output_format)
 
-    except APIError as e:
-        error_msg = f"Ошибка Claude API: {str(e)}"
-        logger.error(error_msg)
-        logger.error(traceback.format_exc())
-        return jsonify({'error': f'Ошибка Claude API: {str(e)}'}), 500
+    # Возвращаем результат
+    if error:
+        return jsonify(error), status_code
 
-    except Exception as e:
-        error_msg = f"Неожиданная ошибка: {str(e)}"
-        logger.error(error_msg)
-        logger.error(traceback.format_exc())
-        return jsonify({'error': f'Ошибка сервера: {str(e)}'}), 500
+    return jsonify({'reply': reply}), HTTP_OK
+
 
 @app.route('/health')
-def health():
-    """Проверка здоровья сервера"""
-    try:
-        # Проверяем наличие API ключа
-        has_api_key = bool(os.environ.get("ANTHROPIC_API_KEY"))
+def health() -> Tuple[Response, int]:
+    """
+    Проверяет состояние приложения.
 
+    Returns:
+        JSON с информацией о статусе приложения и HTTP код
+    """
+    try:
+        has_api_key = claude_client.is_api_key_configured()
         return jsonify({
             'status': 'ok',
             'timestamp': datetime.now().isoformat(),
             'api_key_configured': has_api_key
-        })
+        }), HTTP_OK
     except Exception as e:
         logger.error(f"Ошибка в /health: {str(e)}")
-        return jsonify({'status': 'error', 'message': str(e)}), 500
+        return jsonify({'status': 'error', 'message': str(e)}), HTTP_INTERNAL_SERVER_ERROR
+
+
+def main() -> None:
+    port = int(os.environ.get('PORT', DEFAULT_PORT))
+    logger.info(f"Запуск сервера на порту {port}...")
+    logger.info(f"Режим отладки: {DEBUG_MODE}")
+    app.run(host=DEFAULT_HOST, port=port, debug=DEBUG_MODE)
+
 
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 8000))
-    logger.info(f"Запуск сервера на порту {port}...")
-    logger.info(f"Режим отладки: False")
-    app.run(host='0.0.0.0', port=port, debug=False)
+    main()
