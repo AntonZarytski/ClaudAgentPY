@@ -94,6 +94,31 @@ fi
 
 deactivate
 
+echo -e "\n${BLUE}=== Проверка файлов проекта ===${NC}"
+# Проверяем наличие всех необходимых файлов после git pull
+required_files=("App.py" "constants.py" "prompts.py" "logger.py" "claude_client.py" "public/index.html" "requirements.txt")
+missing_files=()
+
+for file in "${required_files[@]}"; do
+    if [ ! -f "$file" ]; then
+        missing_files+=("$file")
+    fi
+done
+
+if [ ${#missing_files[@]} -ne 0 ]; then
+    echo -e "${RED}✗ Отсутствуют файлы: ${missing_files[*]}${NC}"
+    exit 1
+else
+    echo -e "${GREEN}✓ Все необходимые файлы найдены${NC}"
+    echo -e "${GREEN}  - App.py${NC}"
+    echo -e "${GREEN}  - constants.py${NC}"
+    echo -e "${GREEN}  - prompts.py${NC}"
+    echo -e "${GREEN}  - logger.py${NC}"
+    echo -e "${GREEN}  - claude_client.py${NC}"
+    echo -e "${GREEN}  - public/index.html${NC}"
+    echo -e "${GREEN}  - requirements.txt${NC}"
+fi
+
 echo -e "\n${BLUE}=== Проверка .env ===${NC}"
 source .env
 if [ -n "$ANTHROPIC_API_KEY" ]; then
@@ -121,18 +146,54 @@ else
     exit 1
 fi
 
-echo -e "\n${BLUE}=== Chat Endpoint Test ===${NC}"
+echo -e "\n${BLUE}=== Chat Endpoint Test (Default) ===${NC}"
 chat_response=$(curl -s -X POST http://localhost:8000/api/chat \
   -H "Content-Type: application/json" \
-  -d '{"message":"Тест деплоя из Git"}')
+  -d '{"message":"Тест деплоя из Git","output_format":"default"}')
 
 if echo "$chat_response" | grep -q '"reply"'; then
-    echo -e "${GREEN}✓ Chat endpoint работает${NC}"
+    echo -e "${GREEN}✓ Chat endpoint (default) работает${NC}"
     echo "$chat_response" | python3 -m json.tool | head -20
 else
-    echo -e "${RED}✗ Chat endpoint не работает${NC}"
+    echo -e "${RED}✗ Chat endpoint (default) не работает${NC}"
     echo "$chat_response"
     exit 1
+fi
+
+echo -e "\n${BLUE}=== Chat Endpoint Test (JSON) ===${NC}"
+json_response=$(curl -s -X POST http://localhost:8000/api/chat \
+  -H "Content-Type: application/json" \
+  -d '{"message":"Что такое Python?","output_format":"json"}')
+
+if echo "$json_response" | grep -q '"reply"'; then
+    echo -e "${GREEN}✓ Chat endpoint (json) работает${NC}"
+    # Проверяем, что ответ содержит JSON
+    if echo "$json_response" | python3 -c "import sys, json; data=json.load(sys.stdin); reply=data['reply']; json.loads(reply)" 2>/dev/null; then
+        echo -e "${GREEN}✓ Ответ содержит валидный JSON${NC}"
+    else
+        echo -e "${YELLOW}⚠ Ответ может не содержать валидный JSON${NC}"
+    fi
+else
+    echo -e "${RED}✗ Chat endpoint (json) не работает${NC}"
+    echo "$json_response"
+fi
+
+echo -e "\n${BLUE}=== Chat Endpoint Test (XML) ===${NC}"
+xml_response=$(curl -s -X POST http://localhost:8000/api/chat \
+  -H "Content-Type: application/json" \
+  -d '{"message":"Что такое Python?","output_format":"xml"}')
+
+if echo "$xml_response" | grep -q '"reply"'; then
+    echo -e "${GREEN}✓ Chat endpoint (xml) работает${NC}"
+    # Проверяем, что ответ содержит XML
+    if echo "$xml_response" | python3 -c "import sys, json; data=json.load(sys.stdin); reply=data['reply']; assert '<?xml' in reply or '<response>' in reply" 2>/dev/null; then
+        echo -e "${GREEN}✓ Ответ содержит XML${NC}"
+    else
+        echo -e "${YELLOW}⚠ Ответ может не содержать XML${NC}"
+    fi
+else
+    echo -e "${RED}✗ Chat endpoint (xml) не работает${NC}"
+    echo "$xml_response"
 fi
 
 echo -e "\n${BLUE}=== Service Status ===${NC}"
