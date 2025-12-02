@@ -27,7 +27,7 @@ from constants import (
     HTTP_INTERNAL_SERVER_ERROR,
     HTTP_SERVICE_UNAVAILABLE
 )
-from prompts import get_prompt_by_format
+from prompts import get_system_prompt, get_user_message
 from logger import get_logger
 
 logger = get_logger(__name__)
@@ -110,13 +110,16 @@ class ClaudeClient:
                 logger.warning(f"Неподдерживаемый формат: {output_format}, используется default")
                 output_format = OUTPUT_FORMAT_DEFAULT
             
-            # Получаем промпт для выбранного формата
+            # Получаем системный промпт для выбранного формата
             try:
-                prompt = get_prompt_by_format(output_format, user_message)
+                system_prompt = get_system_prompt(output_format)
             except ValueError as e:
-                logger.error(f"Ошибка получения промпта: {str(e)}")
+                logger.error(f"Ошибка получения системного промпта: {str(e)}")
                 return None, {'error': str(e)}, HTTP_INTERNAL_SERVER_ERROR
-            
+
+            # Получаем чистое сообщение пользователя
+            clean_user_message = get_user_message(user_message)
+
             # Логируем тип запроса
             format_names = {
                 'default': 'обычным форматом',
@@ -124,15 +127,19 @@ class ClaudeClient:
                 'xml': 'форматом XML'
             }
             logger.info(f"Отправка запроса к Claude API с {format_names.get(output_format, 'неизвестным форматом')}...")
-            
-            # Отправляем запрос к API
+            logger.debug(f"Системный промпт: {system_prompt[:100]}...")
+
+            # Отправляем запрос к API с разделением system и messages
+            # system - системные инструкции (роль, формат ответа)
+            # messages - только сообщения пользователя и ассистента
             message = self.client.messages.create(
                 model=model,
                 max_tokens=max_tokens,
+                system=system_prompt,
                 messages=[
                     {
                         "role": "user",
-                        "content": prompt
+                        "content": clean_user_message
                     }
                 ]
             )

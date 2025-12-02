@@ -56,16 +56,75 @@ NC='\033[0m'
 
 cd /home/agent/PythonAgent
 
-echo -e "${BLUE}=== Git Pull ===${NC}"
+echo -e "${BLUE}=== Git Configuration ===${NC}"
+# Добавляем директорию в список безопасных для Git
+git config --global --add safe.directory /home/agent/PythonAgent
+echo -e "${GREEN}✓ Директория добавлена в safe.directory${NC}"
+
+echo -e "\n${BLUE}=== Подготовка к Git Pull ===${NC}"
+
 # Сохраняем локальные изменения .env если есть
 if [ -f .env ]; then
     cp .env .env.backup
     echo -e "${GREEN}✓ .env сохранен в .env.backup${NC}"
 fi
 
-# Получаем обновления
+# Проверяем наличие локальных изменений (кроме .env)
+echo -e "\n${BLUE}=== Проверка локальных изменений ===${NC}"
+LOCAL_CHANGES=$(git status --porcelain | grep -v "\.env" | grep -v "\.env\.backup" || true)
+
+if [ -n "$LOCAL_CHANGES" ]; then
+    echo -e "${YELLOW}⚠ Обнаружены локальные изменения:${NC}"
+    echo "$LOCAL_CHANGES"
+
+    # Сохраняем локальные изменения в stash
+    echo -e "\n${BLUE}Сохранение изменений в git stash...${NC}"
+    STASH_MESSAGE="deploy_git.sh auto-stash $(date '+%Y-%m-%d %H:%M:%S')"
+    git stash push -m "$STASH_MESSAGE" --include-untracked
+    echo -e "${GREEN}✓ Локальные изменения сохранены в stash${NC}"
+    STASH_CREATED=true
+else
+    echo -e "${GREEN}✓ Локальных изменений нет${NC}"
+    STASH_CREATED=false
+fi
+
+# Получаем обновления из Git
+echo -e "\n${BLUE}=== Git Pull ===${NC}"
 git fetch origin
-git pull origin main || git pull origin master
+echo -e "${GREEN}✓ git fetch выполнен${NC}"
+
+# Pull только из main ветки
+if git pull origin main; then
+    echo -e "${GREEN}✓ git pull origin main выполнен успешно${NC}"
+else
+    echo -e "${RED}✗ Ошибка при git pull origin main${NC}"
+
+    # Если был создан stash, восстанавливаем его
+    if [ "$STASH_CREATED" = true ]; then
+        echo -e "${YELLOW}⚠ Восстановление локальных изменений из stash...${NC}"
+        git stash pop || true
+    fi
+
+    # Восстанавливаем .env
+    if [ -f .env.backup ]; then
+        mv .env.backup .env
+    fi
+
+    exit 1
+fi
+
+# Восстанавливаем локальные изменения из stash (если были)
+if [ "$STASH_CREATED" = true ]; then
+    echo -e "\n${BLUE}=== Восстановление локальных изменений ===${NC}"
+
+    if git stash pop; then
+        echo -e "${GREEN}✓ Локальные изменения восстановлены из stash${NC}"
+    else
+        echo -e "${YELLOW}⚠ Конфликт при восстановлении stash${NC}"
+        echo -e "${YELLOW}  Изменения остались в stash. Используйте 'git stash list' для просмотра${NC}"
+        echo -e "${YELLOW}  и 'git stash drop' для удаления после ручного разрешения конфликтов${NC}"
+    fi
+fi
 
 # Восстанавливаем .env
 if [ -f .env.backup ]; then
