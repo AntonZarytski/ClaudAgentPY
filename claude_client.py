@@ -152,15 +152,13 @@ class ClaudeClient:
             }
 
             # Добавляем stop_sequences для spec mode
-            if spec_mode:
-                api_params["stop_sequences"] = [SPEC_END_MARKER]
+            if spec_mode: api_params["stop_sequences"] = [SPEC_END_MARKER]
 
             # === Детальное логирование параметров API запроса ===
             logger.info("=== Отправка запроса к Claude API ===")
             logger.info(f"Модель: {model}")
             logger.info(f"Max tokens: {max_tokens}")
             logger.info(f"Temperature: {temperature}")
-
             # Логируем system prompt (первые 200 символов)
             system_preview = system_prompt[:200] + "..." if len(system_prompt) > 200 else system_prompt
             logger.info(f"System prompt ({len(system_prompt)} символов): \"{system_preview}\"")
@@ -176,7 +174,6 @@ class ClaudeClient:
 
             if spec_mode:
                 logger.info(f"Stop sequences: {api_params.get('stop_sequences', [])}")
-
             logger.info("=====================================")
 
             # Отправляем запрос к API
