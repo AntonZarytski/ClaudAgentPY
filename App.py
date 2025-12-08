@@ -128,7 +128,7 @@ def chat() -> Tuple[Response, int]:
         output_format=output_format,
         max_tokens=max_tokens,
         spec_mode=spec_mode,
-        conversation_history=conversation_history
+        conversation_history=conversation_history,
     )
 
     # Возвращаем результат

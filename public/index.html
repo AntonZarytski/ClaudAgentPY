@@ -740,12 +740,81 @@
           font-size: 0.9em;
         }
 
+        /* Контейнер блока кода с кнопкой копирования */
+        .code-block-wrapper {
+          position: relative;
+          margin: 12px 0;
+        }
+
+        .code-block-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          background: linear-gradient(135deg, #2d2d2d 0%, #1e1e1e 100%);
+          padding: 8px 16px;
+          border-radius: 8px 8px 0 0;
+          border-bottom: 1px solid #3d3d3d;
+        }
+
+        .code-language {
+          color: #9ca3af;
+          font-size: 12px;
+          font-weight: 500;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+
+        .copy-btn {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+          color: white;
+          border: none;
+          padding: 6px 12px;
+          border-radius: 6px;
+          font-size: 12px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
+        }
+
+        .copy-btn:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+        }
+
+        .copy-btn:active {
+          transform: translateY(0);
+        }
+
+        .copy-btn.copied {
+          background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+          box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+        }
+
+        .copy-btn svg {
+          width: 14px;
+          height: 14px;
+        }
+
         .message.assistant .markdown-content pre {
           background: #1e1e1e;
           color: #d4d4d4;
           padding: 16px;
-          border-radius: 8px;
+          border-radius: 0 0 8px 8px;
           overflow-x: auto;
+          margin: 0;
+        }
+
+        .code-block-wrapper + .code-block-wrapper {
+          margin-top: 16px;
+        }
+
+        /* Для блоков без заголовка (inline) */
+        .message.assistant .markdown-content > pre {
+          border-radius: 8px;
           margin: 12px 0;
         }
 
@@ -753,6 +822,15 @@
           background: none;
           padding: 0;
           color: inherit;
+          font-family: 'Menlo', 'Monaco', 'Consolas', 'Liberation Mono', 'Courier New', monospace;
+          font-size: 13px;
+          line-height: 1.5;
+        }
+
+        /* Highlight.js переопределения */
+        .message.assistant .markdown-content pre code.hljs {
+          background: transparent;
+          padding: 0;
         }
 
         .message.assistant .markdown-content ul,
@@ -912,6 +990,18 @@
                 </label>
             </div>
 
+            <!-- Отправлять историю -->
+            <div class="setting-group">
+                <label>💬 История диалога</label>
+                <label class="checkbox-container">
+                    <input type="checkbox" id="sendHistoryCheckbox" checked>
+                    <div>
+                        <div class="checkbox-label">Отправлять историю диалога</div>
+                        <div class="checkbox-desc">Claude будет помнить предыдущие сообщения</div>
+                    </div>
+                </label>
+            </div>
+
             <!-- Кнопка очистки истории -->
             <div class="setting-group">
                 <button class="clear-history-btn" onclick="clearHistory()">🗑️ Очистить историю</button>
@@ -920,6 +1010,9 @@
     </div>
 </div>
 
+<!-- Highlight.js для подсветки синтаксиса -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
 <!-- Marked.js для рендеринга Markdown -->
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
@@ -933,14 +1026,91 @@
     const maxTokensValue = document.getElementById('maxTokensValue');
     const specModeCheckbox = document.getElementById('specMode');
     const settingsPanel = document.getElementById('settingsPanel');
+    const sendHistoryCheckbox = document.getElementById('sendHistoryCheckbox');
 
     // История диалога
     let conversationHistory = [];
 
+    // Счётчик для уникальных ID блоков кода
+    let codeBlockCounter = 0;
+
+    // Кастомный renderer для marked.js с кнопкой копирования
+    const renderer = new marked.Renderer();
+
+    renderer.code = function(code, language) {
+      // Обработка объекта или строки (marked.js может передавать разные форматы)
+      let codeText = typeof code === 'object' ? code.text : code;
+      let lang = typeof code === 'object' ? code.lang : language;
+
+      const blockId = `code-block-${++codeBlockCounter}`;
+      const displayLang = lang || 'code';
+
+      // Подсветка синтаксиса
+      let highlightedCode;
+      if (lang && hljs.getLanguage(lang)) {
+        try {
+          highlightedCode = hljs.highlight(codeText, { language: lang }).value;
+        } catch (e) {
+          highlightedCode = escapeHtml(codeText);
+        }
+      } else {
+        highlightedCode = escapeHtml(codeText);
+      }
+
+      return `
+        <div class="code-block-wrapper">
+          <div class="code-block-header">
+            <span class="code-language">${displayLang}</span>
+            <button class="copy-btn" onclick="copyCode('${blockId}')">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+              </svg>
+              <span>Копировать</span>
+            </button>
+          </div>
+          <pre><code id="${blockId}" class="hljs language-${lang || ''}">${highlightedCode}</code></pre>
+        </div>
+      `;
+    };
+
+    // Функция экранирования HTML
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // Функция копирования кода
+    function copyCode(blockId) {
+      const codeElement = document.getElementById(blockId);
+      if (!codeElement) return;
+
+      const code = codeElement.textContent;
+      navigator.clipboard.writeText(code).then(() => {
+        // Находим кнопку
+        const btn = codeElement.closest('.code-block-wrapper').querySelector('.copy-btn');
+        const btnText = btn.querySelector('span');
+        const originalText = btnText.textContent;
+
+        // Меняем текст и стиль
+        btn.classList.add('copied');
+        btnText.textContent = 'Скопировано!';
+
+        // Возвращаем обратно через 2 секунды
+        setTimeout(() => {
+          btn.classList.remove('copied');
+          btnText.textContent = originalText;
+        }, 2000);
+      }).catch(err => {
+        console.error('Ошибка копирования:', err);
+      });
+    }
+
     // Настройка marked.js
     marked.setOptions({
       breaks: true,
-      gfm: true
+      gfm: true,
+      renderer: renderer
     });
 
     // Settings Panel Functions
@@ -998,8 +1168,8 @@
       message.className = `message ${role}`;
 
       if (typeof content === 'string') {
-        // Для assistant в default формате — рендерим Markdown
-        if (role === 'assistant' && outputFormat.value === 'default') {
+        // Для assistant — всегда рендерим Markdown для поддержки блоков кода
+        if (role === 'assistant') {
           const markdownDiv = document.createElement('div');
           markdownDiv.className = 'markdown-content';
           markdownDiv.innerHTML = marked.parse(content);
@@ -1035,22 +1205,11 @@
       const message = document.createElement('div');
       message.className = 'message assistant';
 
-      if (format === 'json' || format === 'xml') {
-        // Для JSON/XML — показываем в pre
-        const pre = document.createElement('pre');
-        pre.style.whiteSpace = 'pre-wrap';
-        pre.style.fontFamily = 'Menlo, Monaco, Consolas, "Courier New", monospace';
-        pre.style.fontSize = '13px';
-        pre.style.margin = '0';
-        pre.textContent = content;
-        message.appendChild(pre);
-      } else {
-        // Для default — рендерим Markdown
-        const markdownDiv = document.createElement('div');
-        markdownDiv.className = 'markdown-content';
-        markdownDiv.innerHTML = marked.parse(content);
-        message.appendChild(markdownDiv);
-      }
+      // Всегда рендерим через Markdown для поддержки блоков кода
+      const markdownDiv = document.createElement('div');
+      markdownDiv.className = 'markdown-content';
+      markdownDiv.innerHTML = marked.parse(content);
+      message.appendChild(markdownDiv);
 
       // Добавляем в историю
       conversationHistory.push({ role: 'assistant', content });
@@ -1103,7 +1262,10 @@
 
       // Получаем текущие настройки
       const settings = getSettings();
+      const sendHistory = sendHistoryCheckbox.checked;
+
       console.log('Настройки:', settings);
+      console.log('Отправлять историю:', sendHistory);
       console.log('История:', conversationHistory.length, 'сообщений');
 
       // Добавляем сообщение пользователя
@@ -1117,6 +1279,10 @@
       showLoadingIndicator();
 
       try {
+        // Формируем историю для отправки
+        // Если sendHistory выключен — отправляем пустой массив
+        const historyToSend = sendHistory ? conversationHistory.slice(0, -1) : [];
+
         const response = await fetch('/api/chat', {
           method: 'POST',
           headers: {'Content-Type': 'application/json'},
@@ -1125,7 +1291,7 @@
             output_format: settings.output_format,
             max_tokens: settings.max_tokens,
             spec_mode: settings.spec_mode,
-            conversation_history: conversationHistory.slice(0, -1) // Без последнего (текущего) сообщения
+            conversation_history: historyToSend,
           })
         });
 

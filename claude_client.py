@@ -86,7 +86,7 @@ class ClaudeClient:
         model: str = CLAUDE_MODEL,
         max_tokens: int = MAX_TOKENS,
         spec_mode: bool = False,
-        conversation_history: Optional[List[Dict[str, str]]] = None
+        conversation_history: Optional[List[Dict[str, str]]] = None,
     ) -> Tuple[Optional[str], Optional[Dict], int]:
         """
         Отправляет сообщение в Claude API и возвращает ответ.
@@ -164,9 +164,9 @@ class ClaudeClient:
             }
 
             # Добавляем stop_sequences для spec mode
-            # if spec_mode:
-            #     api_params["stop_sequences"] = [SPEC_END_MARKER]
-            #     logger.debug(f"Добавлен stop_sequence: {SPEC_END_MARKER}")
+            if spec_mode:
+                api_params["stop_sequences"] = [SPEC_END_MARKER]
+                logger.debug(f"Добавлен stop_sequence: {SPEC_END_MARKER}")
 
             # Отправляем запрос к API
             message = self.client.messages.create(**api_params)
