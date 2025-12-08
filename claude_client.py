@@ -87,7 +87,8 @@ class ClaudeClient:
         max_tokens: int = MAX_TOKENS,
         spec_mode: bool = False,
         conversation_history: Optional[List[Dict[str, str]]] = None,
-    ) -> Tuple[Optional[str], Optional[Dict], int]:
+        temperature: float = 1.0
+    ) -> Tuple[Optional[str], Optional[Dict], int, Optional[Dict]]:
         """
         Отправляет сообщение в Claude API и возвращает ответ.
 
@@ -98,44 +99,30 @@ class ClaudeClient:
             max_tokens: Максимальное количество токенов в ответе
             spec_mode: Режим сбора уточняющих данных (True/False)
             conversation_history: История диалога (список сообщений с role и content)
+            temperature: Температура генерации (0.0 - 1.0)
 
         Returns:
-            Кортеж из (ответ, ошибка, HTTP код):
+            Кортеж из (ответ, ошибка, HTTP код, usage):
             - ответ: Текст ответа от Claude или None при ошибке
             - ошибка: Словарь с описанием ошибки или None при успехе
             - HTTP код: Код статуса HTTP
+            - usage: Словарь с информацией о токенах (input_tokens, output_tokens) или None
         """
         try:
-            logger.info(f"Сообщение пользователя: {user_message[:MAX_MESSAGE_LOG_LENGTH]}...")
-            logger.info(f"Запрошенный формат вывода: {output_format}")
-            logger.info(f"Режим spec: {spec_mode}")
-            logger.info(f"Max tokens: {max_tokens}")
-            logger.info(f"История диалога: {len(conversation_history or [])} сообщений")
-
             # Валидация формата
             if not self.validate_output_format(output_format):
                 logger.warning(f"Неподдерживаемый формат: {output_format}, используется default")
                 output_format = OUTPUT_FORMAT_DEFAULT
 
-            # Получаем системный промпт для выбранного формата и режима
+            # Получаем системный промпт
             try:
                 system_prompt = get_system_prompt(output_format, spec_mode)
             except ValueError as e:
                 logger.error(f"Ошибка получения системного промпта: {str(e)}")
-                return None, {'error': str(e)}, HTTP_INTERNAL_SERVER_ERROR
+                return None, {'error': str(e)}, HTTP_INTERNAL_SERVER_ERROR, None
 
             # Получаем чистое сообщение пользователя
             clean_user_message = get_user_message(user_message)
-
-            # Логируем тип запроса
-            format_names = {
-                'default': 'обычным форматом',
-                'json': 'форматом JSON',
-                'xml': 'форматом XML'
-            }
-            mode_str = " (spec mode)" if spec_mode else ""
-            logger.info(f"Отправка запроса к Claude API с {format_names.get(output_format, 'неизвестным форматом')}{mode_str}...")
-            logger.debug(f"Системный промпт: {system_prompt[:100]}...")
 
             # Формируем массив сообщений с историей
             messages = []
@@ -160,52 +147,83 @@ class ClaudeClient:
                 "model": model,
                 "max_tokens": max_tokens,
                 "system": system_prompt,
-                "messages": messages
+                "messages": messages,
+                "temperature": temperature
             }
 
             # Добавляем stop_sequences для spec mode
             if spec_mode:
                 api_params["stop_sequences"] = [SPEC_END_MARKER]
-                logger.debug(f"Добавлен stop_sequence: {SPEC_END_MARKER}")
+
+            # === Детальное логирование параметров API запроса ===
+            logger.info("=== Отправка запроса к Claude API ===")
+            logger.info(f"Модель: {model}")
+            logger.info(f"Max tokens: {max_tokens}")
+            logger.info(f"Temperature: {temperature}")
+
+            # Логируем system prompt (первые 200 символов)
+            system_preview = system_prompt[:200] + "..." if len(system_prompt) > 200 else system_prompt
+            logger.info(f"System prompt ({len(system_prompt)} символов): \"{system_preview}\"")
+
+            # Логируем сообщения
+            logger.info(f"Сообщения ({len(messages)} шт.):")
+            for i, msg in enumerate(messages, 1):
+                content = msg['content']
+                content_preview = content[:100] + "..." if len(content) > 100 else content
+                # Убираем переносы строк для компактности
+                content_preview = content_preview.replace('\n', ' ').replace('\r', '')
+                logger.info(f"  [{i}] {msg['role']} ({len(content)} символов): \"{content_preview}\"")
+
+            if spec_mode:
+                logger.info(f"Stop sequences: {api_params.get('stop_sequences', [])}")
+
+            logger.info("=====================================")
 
             # Отправляем запрос к API
             message = self.client.messages.create(**api_params)
-            
+
             # Извлекаем ответ
             raw_reply = message.content[0].text
             logger.info(f"Сырой ответ от Claude: {raw_reply[:MAX_REPLY_LOG_LENGTH]}...")
-            
-            return raw_reply, None, 200
-            
+
+            # Извлекаем информацию о токенах
+            usage = {
+                'input_tokens': message.usage.input_tokens,
+                'output_tokens': message.usage.output_tokens
+            }
+            logger.info(f"Использовано токенов: input={usage['input_tokens']}, output={usage['output_tokens']}")
+
+            return raw_reply, None, 200, usage
+
         except AuthenticationError as e:
             error_msg = f"Ошибка аутентификации API: {str(e)}"
             logger.error(error_msg)
             logger.error(traceback.format_exc())
-            return None, {'error': ERROR_INVALID_API_KEY}, HTTP_INTERNAL_SERVER_ERROR
-        
+            return None, {'error': ERROR_INVALID_API_KEY}, HTTP_INTERNAL_SERVER_ERROR, None
+
         except RateLimitError as e:
             error_msg = f"Превышен лимит запросов: {str(e)}"
             logger.error(error_msg)
             logger.error(traceback.format_exc())
-            return None, {'error': ERROR_RATE_LIMIT}, HTTP_TOO_MANY_REQUESTS
-        
+            return None, {'error': ERROR_RATE_LIMIT}, HTTP_TOO_MANY_REQUESTS, None
+
         except APIConnectionError as e:
             error_msg = f"Ошибка соединения с API: {str(e)}"
             logger.error(error_msg)
             logger.error(traceback.format_exc())
-            return None, {'error': ERROR_CONNECTION}, HTTP_SERVICE_UNAVAILABLE
-        
+            return None, {'error': ERROR_CONNECTION}, HTTP_SERVICE_UNAVAILABLE, None
+
         except APIError as e:
             error_msg = f"Ошибка Claude API: {str(e)}"
             logger.error(error_msg)
             logger.error(traceback.format_exc())
-            return None, {'error': f'Ошибка Claude API: {str(e)}'}, HTTP_INTERNAL_SERVER_ERROR
-        
+            return None, {'error': f'Ошибка Claude API: {str(e)}'}, HTTP_INTERNAL_SERVER_ERROR, None
+
         except Exception as e:
             error_msg = f"Неожиданная ошибка: {str(e)}"
             logger.error(error_msg)
             logger.error(traceback.format_exc())
-            return None, {'error': f'Ошибка сервера: {str(e)}'}, HTTP_INTERNAL_SERVER_ERROR
+            return None, {'error': f'Ошибка сервера: {str(e)}'}, HTTP_INTERNAL_SERVER_ERROR, None
     
     def is_api_key_configured(self) -> bool:
         return bool(self.api_key)

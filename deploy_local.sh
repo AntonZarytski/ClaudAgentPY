@@ -68,6 +68,10 @@ check_local_files() {
         missing_files+=("claude_client.py")
     fi
 
+     if [ ! -f "token_counter.py" ]; then
+            missing_files+=("token_counter.py")
+     fi
+
     # Фронтенд
     if [ ! -f "public/index.html" ]; then
         missing_files+=("public/index.html")
@@ -140,6 +144,13 @@ deploy_files() {
         print_success "claude_client.py скопирован"
     else
         print_error "Ошибка копирования claude_client.py"
+        exit 1
+    fi
+
+    if scp -q token_counter.py ${SERVER}:${REMOTE_DIR}/; then
+        print_success "token_counter.py скопирован"
+    else
+        print_error "Ошибка копирования token_counter.py"
         exit 1
     fi
 

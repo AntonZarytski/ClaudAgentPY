@@ -27,6 +27,8 @@ from constants import (
 )
 from logger import setup_logging, get_logger
 from claude_client import ClaudeClient
+from token_counter import TokenCounter
+from prompts import get_system_prompt
 
 # Загрузка переменных окружения
 load_dotenv()
@@ -120,22 +122,113 @@ def chat() -> Tuple[Response, int]:
     if not isinstance(conversation_history, list):
         conversation_history = []
 
-    logger.info(f"Параметры: format={output_format}, max_tokens={max_tokens}, spec_mode={spec_mode}, history_len={len(conversation_history)}")
+    # Получаем температуру
+    temperature = data.get('temperature', 1.0)
+    if not isinstance(temperature, (int, float)):
+        temperature = 1.0
+    temperature = max(0.0, min(1.0, float(temperature)))
+
+    logger.info(f"Параметры: format={output_format}, max_tokens={max_tokens}, spec_mode={spec_mode}, history_len={len(conversation_history)}, temperature={temperature}")
 
     # Отправляем запрос к Claude API
-    reply, error, status_code = claude_client.send_message(
+    reply, error, status_code, usage = claude_client.send_message(
         user_message=user_message,
         output_format=output_format,
         max_tokens=max_tokens,
         spec_mode=spec_mode,
         conversation_history=conversation_history,
+        temperature=temperature
     )
 
     # Возвращаем результат
     if error:
         return jsonify(error), status_code
 
-    return jsonify({'reply': reply}), HTTP_OK
+    # Формируем ответ с информацией о токенах
+    response_data = {'reply': reply}
+    if usage:
+        response_data['usage'] = usage
+
+    return jsonify(response_data), HTTP_OK
+
+
+@app.route('/api/count_tokens', methods=['POST'])
+def count_tokens() -> Tuple[Response, int]:
+    """
+    Подсчитывает количество токенов для сообщения.
+
+    Ожидает JSON с полями:
+    - message: текст сообщения
+    - conversation_history: история диалога (опционально)
+    - output_format: формат вывода (опционально)
+    - spec_mode: режим spec (опционально)
+
+    Returns:
+        JSON с количеством токенов и HTTP код
+    """
+    import traceback
+
+    logger.info("=== /api/count_tokens: Начало обработки запроса ===")
+
+    try:
+        data: Dict[str, Any] = request.get_json() or {}
+        logger.info(f"Полученные данные: message_len={len(data.get('message', ''))}, "
+                   f"output_format={data.get('output_format')}, "
+                   f"spec_mode={data.get('spec_mode')}, "
+                   f"history_len={len(data.get('conversation_history', []))}")
+
+        # Получаем сообщение
+        user_message = data.get('message', '').strip()
+        if not user_message:
+            logger.warning("Пустое сообщение")
+            return jsonify({'error': ERROR_EMPTY_MESSAGE}), HTTP_BAD_REQUEST
+
+        # Получаем параметры
+        output_format = data.get('output_format', 'default')
+        spec_mode = data.get('spec_mode', False)
+
+        # Получаем историю диалога
+        conversation_history = data.get('conversation_history', [])
+        if not isinstance(conversation_history, list):
+            conversation_history = []
+
+        # Формируем системный промпт
+        system_prompt = get_system_prompt(output_format, spec_mode)
+        logger.info(f"Используется промпт: format={output_format}, spec={spec_mode}")
+
+        logger.info(f"Длина system_prompt: {len(system_prompt)} символов")
+
+        # Формируем массив сообщений
+        messages = []
+        for msg in conversation_history:
+            if msg.get('role') in ('user', 'assistant') and msg.get('content'):
+                messages.append({
+                    "role": msg['role'],
+                    "content": msg['content']
+                })
+        messages.append({"role": "user", "content": user_message})
+
+        logger.info(f"Сформировано {len(messages)} сообщений для подсчёта")
+
+        # Подсчитываем токены
+        logger.info("Создание TokenCounter...")
+        token_counter = TokenCounter()
+
+        logger.info("Вызов count_tokens()...")
+        input_tokens = token_counter.count_tokens(
+            system_prompt=system_prompt,
+            messages=messages
+        )
+
+        logger.info(f"=== Успешно подсчитано: {input_tokens} токенов ===")
+        return jsonify({'input_tokens': input_tokens}), HTTP_OK
+
+    except Exception as e:
+        logger.error(f"=== Ошибка подсчёта токенов ===")
+        logger.error(f"Тип ошибки: {type(e).__name__}")
+        logger.error(f"Сообщение: {str(e)}")
+        logger.error(f"Traceback:\n{traceback.format_exc()}")
+        return jsonify({'error': str(e)}), HTTP_INTERNAL_SERVER_ERROR
 
 
 @app.route('/health')

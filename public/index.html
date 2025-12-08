@@ -18,8 +18,10 @@
           display: flex;
           justify-content: center;
           align-items: center;
-          min-height: 100vh;
-          padding: 20px;
+          height: 100vh;
+          width: 100vw;
+          padding: 0;
+          margin: 0;
           position: relative;
           overflow: hidden;
         }
@@ -56,16 +58,15 @@
         .container {
           background: rgba(255, 255, 255, 0.95);
           backdrop-filter: blur(20px);
-          border-radius: 24px;
-          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.1);
-          width: 100%;
-          max-width: 800px;
-          height: 80vh;
-          max-height: 700px;
+          border-radius: 0;
+          box-shadow: none;
+          width: 100vw;
+          max-width: 100vw;
+          height: 100vh;
+          max-height: 100vh;
           overflow: hidden;
           position: relative;
           z-index: 1;
-          animation: slideUp 0.5s ease-out;
         }
 
         @keyframes slideUp {
@@ -504,6 +505,32 @@
           display: none;
         }
 
+        /* Tokens Button */
+        .tokens-btn {
+          background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+          border: none;
+          font-size: 20px;
+          cursor: pointer;
+          padding: 12px;
+          border-radius: 12px;
+          color: white;
+          transition: all 0.3s ease;
+          box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+        }
+
+        .tokens-btn:hover {
+          transform: scale(1.05);
+          box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
+        }
+
+        .tokens-btn::before {
+          display: none;
+        }
+
         /* Settings Panel - справа от чата, не перекрывает */
         .settings-panel {
           width: 0;
@@ -917,6 +944,218 @@
             font-size: 18px;
           }
         }
+
+        /* Modal для отображения токенов */
+        .modal-overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background: rgba(0, 0, 0, 0.5);
+          backdrop-filter: blur(4px);
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          z-index: 1000;
+          opacity: 0;
+          visibility: hidden;
+          transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+
+        .modal-overlay.active {
+          opacity: 1;
+          visibility: visible;
+        }
+
+        .modal-content {
+          background: white;
+          border-radius: 20px;
+          padding: 0;
+          max-width: 400px;
+          width: 90%;
+          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+          transform: scale(0.9) translateY(20px);
+          transition: transform 0.3s ease;
+          overflow: hidden;
+        }
+
+        .modal-overlay.active .modal-content {
+          transform: scale(1) translateY(0);
+        }
+
+        .modal-header {
+          background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #d946ef 100%);
+          color: white;
+          padding: 20px 24px;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+
+        .modal-header h3 {
+          margin: 0;
+          font-size: 18px;
+          font-weight: 600;
+        }
+
+        .modal-close {
+          background: transparent;
+          border: none;
+          color: white;
+          font-size: 24px;
+          cursor: pointer;
+          padding: 4px 8px;
+          border-radius: 8px;
+          transition: background 0.2s;
+          box-shadow: none;
+        }
+
+        .modal-close:hover {
+          background: rgba(255, 255, 255, 0.2);
+        }
+
+        .modal-body {
+          padding: 24px;
+          text-align: center;
+        }
+
+        .token-count {
+          font-size: 48px;
+          font-weight: 700;
+          background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #d946ef 100%);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+          margin: 16px 0;
+        }
+
+        .token-label {
+          color: #6b7280;
+          font-size: 14px;
+        }
+
+        .modal-footer {
+          padding: 16px 24px;
+          border-top: 1px solid #e5e7eb;
+          text-align: center;
+        }
+
+        .modal-btn {
+          background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+          color: white;
+          border: none;
+          padding: 12px 32px;
+          border-radius: 12px;
+          font-size: 14px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .modal-btn:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+        }
+
+        /* Стиль для информации о токенах в сообщениях */
+        .token-info {
+          margin-top: 12px;
+          padding-top: 12px;
+          border-top: 1px solid rgba(0, 0, 0, 0.08);
+          font-size: 12px;
+          color: #9ca3af;
+          font-style: italic;
+        }
+
+        /* Адаптивный дизайн для планшетов */
+        @media (max-width: 768px) {
+          .modal-content {
+            width: 95%;
+            max-width: none;
+          }
+
+          .token-count {
+            font-size: 36px;
+          }
+
+          button {
+            min-height: 44px;
+            min-width: 44px;
+          }
+
+          .tokens-btn {
+            width: 44px;
+            height: 44px;
+          }
+        }
+
+        /* Адаптивный дизайн для смартфонов */
+        @media (max-width: 480px) {
+          .header {
+            padding: 16px;
+          }
+
+          .header h1 {
+            font-size: 20px;
+          }
+
+          .header h1::before {
+            font-size: 24px;
+          }
+
+          #chat {
+            padding: 12px;
+          }
+
+          .message {
+            max-width: 90%;
+            padding: 10px 14px;
+            font-size: 14px;
+          }
+
+          .avatar {
+            width: 32px;
+            height: 32px;
+            font-size: 16px;
+          }
+
+          .input-group {
+            padding: 8px 12px;
+          }
+
+          textarea#input {
+            padding: 12px 16px;
+            font-size: 14px;
+          }
+
+          button {
+            padding: 12px 20px;
+            font-size: 14px;
+          }
+
+          .settings-panel.active {
+            width: 100%;
+            max-height: 60vh;
+          }
+
+          .settings-content {
+            padding: 12px;
+          }
+
+          .setting-group {
+            padding: 12px;
+          }
+
+          .slider-container input[type="range"] {
+            height: 8px;
+          }
+
+          .slider-container input[type="range"]::-webkit-slider-thumb {
+            width: 24px;
+            height: 24px;
+          }
+        }
     </style>
 </head>
 <body>
@@ -941,6 +1180,7 @@
                 <button onclick="sendMessage()" id="sendBtn">
                     <span style="position: relative; z-index: 1;">✨ Отправить</span>
                 </button>
+                <button class="tokens-btn" onclick="checkTokens()" id="checkTokensBtn" title="Подсчитать токены">🔢</button>
                 <button class="settings-btn" onclick="toggleSettings()" title="Настройки">⚙️</button>
             </div>
         </div>
@@ -978,6 +1218,20 @@
                 <p class="setting-hint">Максимальная длина ответа Claude. Больше токенов = длиннее ответ</p>
             </div>
 
+            <!-- Temperature -->
+            <div class="setting-group">
+                <label>🌡️ Температура</label>
+                <div class="slider-container">
+                    <div class="slider-value">
+                        <span>0</span>
+                        <span class="current-value" id="temperatureValue">1.0</span>
+                        <span>1</span>
+                    </div>
+                    <input type="range" id="temperature" min="0" max="1" step="0.1" value="1">
+                </div>
+                <p class="setting-hint">Контролирует случайность ответов. Ниже = более предсказуемо, выше = более креативно</p>
+            </div>
+
             <!-- Spec Mode -->
             <div class="setting-group">
                 <label>🎯 Режим работы</label>
@@ -1002,10 +1256,40 @@
                 </label>
             </div>
 
+            <!-- Показывать токены в ответах -->
+            <div class="setting-group">
+                <label>📊 Статистика токенов</label>
+                <label class="checkbox-container">
+                    <input type="checkbox" id="showTokenCountCheckbox" checked>
+                    <div>
+                        <div class="checkbox-label">Показывать количество токенов</div>
+                        <div class="checkbox-desc">Отображать потраченные токены после каждого ответа</div>
+                    </div>
+                </label>
+            </div>
+
             <!-- Кнопка очистки истории -->
             <div class="setting-group">
                 <button class="clear-history-btn" onclick="clearHistory()">🗑️ Очистить историю</button>
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal для отображения токенов -->
+<div class="modal-overlay" id="tokenModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>📊 Подсчёт токенов</h3>
+            <button class="modal-close" onclick="closeTokenModal()">×</button>
+        </div>
+        <div class="modal-body">
+            <div class="token-label">Количество входных токенов:</div>
+            <div class="token-count" id="tokenCountValue">0</div>
+            <div class="token-label">Это количество токенов, которое будет использовано при отправке сообщения</div>
+        </div>
+        <div class="modal-footer">
+            <button class="modal-btn" onclick="closeTokenModal()">Понятно</button>
         </div>
     </div>
 </div>
@@ -1027,6 +1311,11 @@
     const specModeCheckbox = document.getElementById('specMode');
     const settingsPanel = document.getElementById('settingsPanel');
     const sendHistoryCheckbox = document.getElementById('sendHistoryCheckbox');
+    const temperatureSlider = document.getElementById('temperature');
+    const temperatureValue = document.getElementById('temperatureValue');
+    const showTokenCountCheckbox = document.getElementById('showTokenCountCheckbox');
+    const tokenModal = document.getElementById('tokenModal');
+    const tokenCountValue = document.getElementById('tokenCountValue');
 
     // История диалога
     let conversationHistory = [];
@@ -1126,6 +1415,23 @@
       settingsPanel.classList.toggle('active');
     }
 
+    // Token Modal Functions
+    function openTokenModal(count) {
+      tokenCountValue.textContent = count.toLocaleString();
+      tokenModal.classList.add('active');
+    }
+
+    function closeTokenModal() {
+      tokenModal.classList.remove('active');
+    }
+
+    // Закрытие модального окна при клике вне его
+    tokenModal.addEventListener('click', (e) => {
+      if (e.target === tokenModal) {
+        closeTokenModal();
+      }
+    });
+
     // Очистка истории
     function clearHistory() {
       conversationHistory = [];
@@ -1137,6 +1443,11 @@
     // Update max tokens display
     maxTokensSlider.addEventListener('input', () => {
       maxTokensValue.textContent = maxTokensSlider.value;
+    });
+
+    // Update temperature display
+    temperatureSlider.addEventListener('input', () => {
+      temperatureValue.textContent = parseFloat(temperatureSlider.value).toFixed(1);
     });
 
     // Автоматическое изменение высоты textarea
@@ -1152,7 +1463,8 @@
       return {
         output_format: outputFormat.value,
         max_tokens: parseInt(maxTokensSlider.value, 10),
-        spec_mode: specModeCheckbox.checked
+        spec_mode: specModeCheckbox.checked,
+        temperature: parseFloat(temperatureSlider.value)
       };
     }
 
@@ -1291,7 +1603,8 @@
             output_format: settings.output_format,
             max_tokens: settings.max_tokens,
             spec_mode: settings.spec_mode,
-            conversation_history: historyToSend,
+            temperature: settings.temperature,
+            conversation_history: historyToSend
           })
         });
 
@@ -1304,7 +1617,13 @@
         if (data.error) {
           addMessage('assistant', '❌ ' + data.error, false);
         } else if (data.reply) {
-          addAssistantMessage(data.reply, settings.output_format);
+          // Добавляем информацию о токенах, если настройка включена
+          let replyWithTokens = data.reply;
+          if (showTokenCountCheckbox.checked && data.usage) {
+            const totalTokens = data.usage.input_tokens + data.usage.output_tokens;
+            replyWithTokens += `\n\n<div class="token-info">📊 Потрачено токенов: ${totalTokens.toLocaleString()} (вход: ${data.usage.input_tokens.toLocaleString()}, выход: ${data.usage.output_tokens.toLocaleString()})</div>`;
+          }
+          addAssistantMessage(replyWithTokens, settings.output_format);
         } else {
           addMessage('assistant', '🤖 Неожиданный формат ответа от сервера', false);
         }
@@ -1319,6 +1638,80 @@
       }
     }
 
+    // Функция подсчёта токенов
+    async function checkTokens() {
+      const text = input.value.trim();
+      if (!text) {
+        openTokenModal(0);
+        tokenCountValue.textContent = '—';
+        document.querySelector('.modal-body .token-label').textContent = 'Введите сообщение для подсчёта токенов';
+        return;
+      }
+
+      const settings = getSettings();
+      const sendHistory = sendHistoryCheckbox.checked;
+      const historyToSend = sendHistory ? conversationHistory : [];
+
+      const checkTokensBtn = document.getElementById('checkTokensBtn');
+      checkTokensBtn.disabled = true;
+      checkTokensBtn.textContent = '⏳';
+
+      const requestBody = {
+        message: text,
+        output_format: settings.output_format,
+        spec_mode: settings.spec_mode,
+        conversation_history: historyToSend
+      };
+
+      console.log('[checkTokens] Отправка запроса:', requestBody);
+
+      try {
+        const response = await fetch('/api/count_tokens', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(requestBody)
+        });
+
+        console.log('[checkTokens] Статус ответа:', response.status, response.statusText);
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('[checkTokens] Ошибка HTTP:', response.status, errorText);
+          openTokenModal(0);
+          tokenCountValue.textContent = '❌';
+          document.querySelector('.modal-body .token-label').textContent = `Ошибка HTTP ${response.status}`;
+          return;
+        }
+
+        const data = await response.json();
+        console.log('[checkTokens] Ответ от сервера:', data);
+
+        if (data.error) {
+          openTokenModal(0);
+          tokenCountValue.textContent = '❌';
+          document.querySelector('.modal-body .token-label').textContent = 'Ошибка: ' + data.error;
+        } else if (data.input_tokens !== undefined) {
+          openTokenModal(data.input_tokens);
+          document.querySelector('.modal-body .token-label').textContent = 'Количество входных токенов:';
+        } else {
+          openTokenModal(0);
+          tokenCountValue.textContent = '?';
+          document.querySelector('.modal-body .token-label').textContent = 'Неожиданный ответ от сервера';
+        }
+      } catch (err) {
+        console.error('[checkTokens] Ошибка сети:', err);
+        console.error('[checkTokens] Тип ошибки:', err.name);
+        console.error('[checkTokens] Сообщение:', err.message);
+        console.error('[checkTokens] Stack:', err.stack);
+        openTokenModal(0);
+        tokenCountValue.textContent = '❌';
+        document.querySelector('.modal-body .token-label').textContent = 'Ошибка сети: ' + err.message;
+      } finally {
+        checkTokensBtn.disabled = false;
+        checkTokensBtn.textContent = '🔢';
+      }
+    }
+
     // Event Listeners
     sendBtn.addEventListener('click', sendMessage);
 
@@ -1329,10 +1722,11 @@
       }
     });
 
-    // Close settings on Escape key
+    // Close settings and modal on Escape key
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
         closeSettings();
+        closeTokenModal();
       }
     });
 
