@@ -56,6 +56,6 @@ MAX_REPLY_LOG_LENGTH = 500
 
 # Настройки сжатия истории
 COMPRESSION_THRESHOLD = 10  # Количество сообщений, после которых происходит сжатие
-COMPRESSION_KEEP_RECENT = 4  # Количество последних сообщений для сохранения без сжатия
-COMPRESSION_SUMMARY_MAX_TOKENS = 500  # Максимальное количество токенов для summary
+COMPRESSION_KEEP_RECENT = 2  # Количество последних сообщений для сохранения без сжатия
+COMPRESSION_SUMMARY_MAX_TOKENS = 150  # Максимальное количество токенов для summary
 

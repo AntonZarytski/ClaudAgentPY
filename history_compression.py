@@ -84,14 +84,13 @@ class HistoryCompressor:
         # Формируем промпт для создания summary
         conversation_text = self._format_conversation(messages)
 
-        summary_prompt = f"""Создай краткое резюме следующего диалога между пользователем и ассистентом.
-Сохрани ключевую информацию: основные вопросы пользователя, ответы ассистента, важные детали и контекст.
-Будь максимально кратким, но информативным.
+        summary_prompt = f"""Создай ОЧЕНЬ краткое резюме диалога (максимум 2-3 предложения).
+Укажи только ключевые темы, о которых говорили. Без деталей, без форматирования.
 
 Диалог:
 {conversation_text}
 
-Краткое резюме:"""
+КРАТКОЕ резюме (2-3 предложения):"""
 
         try:
             logger.info(f"Создание summary для {len(messages)} сообщений...")
@@ -164,7 +163,7 @@ class HistoryCompressor:
         compressed_history = [
             {
                 "role": "user",
-                "content": f"[КРАТКОЕ РЕЗЮМЕ ПРЕДЫДУЩЕГО ДИАЛОГА]\n{summary_text}"
+                "content": f"[Ранее обсуждали: {summary_text}]"
             }
         ]
 
@@ -209,21 +208,16 @@ class HistoryCompressor:
             Упрощенное резюме
         """
         user_messages = [
-            msg['content'] for msg in messages
+            msg['content'][:50] for msg in messages  # Только первые 50 символов
             if msg.get('role') == 'user'
         ]
 
         if not user_messages:
-            return "Предыдущий диалог без конкретных вопросов."
+            return "общие вопросы"
 
-        # Берём первые несколько слов из каждого вопроса
-        topics = []
-        for msg in user_messages[:5]:  # Максимум 5 вопросов
-            words = msg.split()[:10]  # Первые 10 слов
-            topics.append(" ".join(words))
-
-        summary = f"Обсуждали темы: {'; '.join(topics)}..."
-        return summary
+        # Берём максимум 3 темы
+        topics = ", ".join(user_messages[:3])
+        return topics
 
     def get_compression_stats(self, history: List[Dict[str, str]]) -> Dict[str, int]:
         """

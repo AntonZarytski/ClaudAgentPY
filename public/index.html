@@ -1988,7 +1988,8 @@
       };
     }
 
-    function addMessage(role, content, addToHistory = true) {
+    // Утилита для создания DOM сообщения
+    function createMessageDOM(role, content) {
       const wrapper = document.createElement('div');
       wrapper.className = `message-wrapper ${role}`;
 
@@ -2000,7 +2001,6 @@
       message.className = `message ${role}`;
 
       if (typeof content === 'string') {
-        // Для assistant — всегда рендерим Markdown для поддержки блоков кода
         if (role === 'assistant') {
           const markdownDiv = document.createElement('div');
           markdownDiv.className = 'markdown-content';
@@ -2008,11 +2008,6 @@
           message.appendChild(markdownDiv);
         } else {
           message.textContent = content;
-        }
-
-        // Добавляем в историю
-        if (addToHistory && (role === 'user' || role === 'assistant')) {
-          conversationHistory.push({ role, content });
         }
       } else if (content instanceof Node) {
         message.appendChild(content);
@@ -2022,63 +2017,22 @@
 
       wrapper.appendChild(avatar);
       wrapper.appendChild(message);
-      chat.appendChild(wrapper);
+      return wrapper;
+    }
+
+    function addMessage(role, content, addToHistory = true) {
+      chat.appendChild(createMessageDOM(role, content));
+      if (addToHistory && (role === 'user' || role === 'assistant')) {
+        conversationHistory.push({ role, content });
+      }
       chat.scrollTop = chat.scrollHeight;
     }
 
-    function addAssistantMessage(content, format) {
-      const wrapper = document.createElement('div');
-      wrapper.className = 'message-wrapper assistant';
-
-      const avatar = document.createElement('div');
-      avatar.className = 'avatar assistant';
-      avatar.textContent = '🤖';
-
-      const message = document.createElement('div');
-      message.className = 'message assistant';
-
-      // Всегда рендерим через Markdown для поддержки блоков кода
-      const markdownDiv = document.createElement('div');
-      markdownDiv.className = 'markdown-content';
-      markdownDiv.innerHTML = marked.parse(content);
-      message.appendChild(markdownDiv);
-
-      // Добавляем в историю
-      conversationHistory.push({ role: 'assistant', content });
-
-      wrapper.appendChild(avatar);
-      wrapper.appendChild(message);
-      chat.appendChild(wrapper);
-      chat.scrollTop = chat.scrollHeight;
-    }
-
-    function addAssistantMessageWithTokens(cleanContent, displayContent, format) {
-      const wrapper = document.createElement('div');
-      wrapper.className = 'message-wrapper assistant';
-
-      const avatar = document.createElement('div');
-      avatar.className = 'avatar assistant';
-      avatar.textContent = '🤖';
-
-      const message = document.createElement('div');
-      message.className = 'message assistant';
-
-      // Рендерим версию С токенами для отображения
-      const markdownDiv = document.createElement('div');
-      markdownDiv.className = 'markdown-content';
-      markdownDiv.innerHTML = marked.parse(displayContent);
-      message.appendChild(markdownDiv);
-
-      // Добавляем в историю ЧИСТУЮ версию БЕЗ токенов
+    function addAssistantMessageWithTokens(cleanContent, displayContent) {
+      chat.appendChild(createMessageDOM('assistant', displayContent));
       conversationHistory.push({ role: 'assistant', content: cleanContent });
-
-      // Увеличиваем счётчик сообщений
       messageCountSinceCompression++;
       console.log(`💬 Сообщение добавлено. Счётчик: ${messageCountSinceCompression}`);
-
-      wrapper.appendChild(avatar);
-      wrapper.appendChild(message);
-      chat.appendChild(wrapper);
       chat.scrollTop = chat.scrollHeight;
     }
 
@@ -2214,74 +2168,59 @@
       }
     }
 
+    // Утилита для отображения результата подсчёта токенов
+    function showTokenResult(count, label) {
+      openTokenModal(count);
+      tokenCountValue.textContent = count > 0 ? count.toLocaleString() : (count === 0 ? '—' : '❌');
+      document.querySelector('.modal-body .token-label').textContent = label;
+    }
+
     // Функция подсчёта токенов
     async function checkTokens() {
       const text = input.value.trim();
       if (!text) {
-        openTokenModal(0);
-        tokenCountValue.textContent = '—';
-        document.querySelector('.modal-body .token-label').textContent = 'Введите сообщение для подсчёта токенов';
+        showTokenResult(0, 'Введите сообщение для подсчёта токенов');
         return;
       }
 
       const settings = getSettings();
-      const sendHistory = sendHistoryCheckbox.checked;
-      const historyToSend = sendHistory ? conversationHistory : [];
-
+      const historyToSend = sendHistoryCheckbox.checked ? conversationHistory : [];
       const checkTokensBtn = document.getElementById('checkTokensBtn');
+
       checkTokensBtn.disabled = true;
       checkTokensBtn.textContent = '⏳';
-
-      const requestBody = {
-        message: text,
-        output_format: settings.output_format,
-        spec_mode: settings.spec_mode,
-        conversation_history: historyToSend
-      };
-
-      console.log('[checkTokens] Отправка запроса:', requestBody);
 
       try {
         const response = await fetch('/api/count_tokens', {
           method: 'POST',
           headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify(requestBody)
+          body: JSON.stringify({
+            message: text,
+            output_format: settings.output_format,
+            spec_mode: settings.spec_mode,
+            conversation_history: historyToSend
+          })
         });
 
-        console.log('[checkTokens] Статус ответа:', response.status, response.statusText);
-
         if (!response.ok) {
-          const errorText = await response.text();
-          console.error('[checkTokens] Ошибка HTTP:', response.status, errorText);
-          openTokenModal(0);
-          tokenCountValue.textContent = '❌';
-          document.querySelector('.modal-body .token-label').textContent = `Ошибка HTTP ${response.status}`;
+          console.error('[checkTokens] Ошибка HTTP:', response.status);
+          showTokenResult(-1, `Ошибка HTTP ${response.status}`);
           return;
         }
 
         const data = await response.json();
-        console.log('[checkTokens] Ответ от сервера:', data);
+        console.log('[checkTokens] Подсчитано токенов:', data.input_tokens);
 
         if (data.error) {
-          openTokenModal(0);
-          tokenCountValue.textContent = '❌';
-          document.querySelector('.modal-body .token-label').textContent = 'Ошибка: ' + data.error;
+          showTokenResult(-1, 'Ошибка: ' + data.error);
         } else if (data.input_tokens !== undefined) {
-          openTokenModal(data.input_tokens);
-          document.querySelector('.modal-body .token-label').textContent = 'Количество входных токенов:';
+          showTokenResult(data.input_tokens, 'Количество входных токенов:');
         } else {
-          openTokenModal(0);
-          tokenCountValue.textContent = '?';
-          document.querySelector('.modal-body .token-label').textContent = 'Неожиданный ответ от сервера';
+          showTokenResult(-1, 'Неожиданный ответ от сервера');
         }
       } catch (err) {
-        console.error('[checkTokens] Ошибка сети:', err);
-        console.error('[checkTokens] Тип ошибки:', err.name);
-        console.error('[checkTokens] Сообщение:', err.message);
-        console.error('[checkTokens] Stack:', err.stack);
-        openTokenModal(0);
-        tokenCountValue.textContent = '❌';
-        document.querySelector('.modal-body .token-label').textContent = 'Ошибка сети: ' + err.message;
+        console.error('[checkTokens] Ошибка:', err.message);
+        showTokenResult(-1, 'Ошибка сети: ' + err.message);
       } finally {
         checkTokensBtn.disabled = false;
         checkTokensBtn.textContent = '🔢';

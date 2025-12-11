@@ -68,9 +68,13 @@ check_local_files() {
         missing_files+=("claude_client.py")
     fi
 
-     if [ ! -f "token_counter.py" ]; then
-            missing_files+=("token_counter.py")
-     fi
+    if [ ! -f "token_counter.py" ]; then
+           missing_files+=("token_counter.py")
+    fi
+
+    if [ ! -f "history_compression.py" ]; then
+              missing_files+=("history_compression.py")
+    fi
 
     # Фронтенд
     if [ ! -f "public/index.html" ]; then
@@ -151,6 +155,13 @@ deploy_files() {
         print_success "token_counter.py скопирован"
     else
         print_error "Ошибка копирования token_counter.py"
+        exit 1
+    fi
+
+    if scp -q history_compression.py ${SERVER}:${REMOTE_DIR}/; then
+        print_success "history_compression.py скопирован"
+    else
+        print_error "Ошибка копирования history_compression.py"
         exit 1
     fi
 

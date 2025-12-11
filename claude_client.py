@@ -16,7 +16,6 @@ from constants import (
     MAX_TOKENS,
     OUTPUT_FORMAT_DEFAULT,
     VALID_OUTPUT_FORMATS,
-    MAX_MESSAGE_LOG_LENGTH,
     MAX_REPLY_LOG_LENGTH,
     ERROR_INVALID_API_KEY,
     ERROR_RATE_LIMIT,
@@ -193,33 +192,23 @@ class ClaudeClient:
             return raw_reply, None, 200, usage
 
         except AuthenticationError as e:
-            error_msg = f"Ошибка аутентификации API: {str(e)}"
-            logger.error(error_msg)
-            logger.error(traceback.format_exc())
+            logger.error(f"Ошибка аутентификации API: {e}\n{traceback.format_exc()}")
             return None, {'error': ERROR_INVALID_API_KEY}, HTTP_INTERNAL_SERVER_ERROR, None
 
         except RateLimitError as e:
-            error_msg = f"Превышен лимит запросов: {str(e)}"
-            logger.error(error_msg)
-            logger.error(traceback.format_exc())
+            logger.error(f"Превышен лимит запросов: {e}\n{traceback.format_exc()}")
             return None, {'error': ERROR_RATE_LIMIT}, HTTP_TOO_MANY_REQUESTS, None
 
         except APIConnectionError as e:
-            error_msg = f"Ошибка соединения с API: {str(e)}"
-            logger.error(error_msg)
-            logger.error(traceback.format_exc())
+            logger.error(f"Ошибка соединения с API: {e}\n{traceback.format_exc()}")
             return None, {'error': ERROR_CONNECTION}, HTTP_SERVICE_UNAVAILABLE, None
 
         except APIError as e:
-            error_msg = f"Ошибка Claude API: {str(e)}"
-            logger.error(error_msg)
-            logger.error(traceback.format_exc())
+            logger.error(f"Ошибка Claude API: {e}\n{traceback.format_exc()}")
             return None, {'error': f'Ошибка Claude API: {str(e)}'}, HTTP_INTERNAL_SERVER_ERROR, None
 
         except Exception as e:
-            error_msg = f"Неожиданная ошибка: {str(e)}"
-            logger.error(error_msg)
-            logger.error(traceback.format_exc())
+            logger.error(f"Неожиданная ошибка: {e}\n{traceback.format_exc()}")
             return None, {'error': f'Ошибка сервера: {str(e)}'}, HTTP_INTERNAL_SERVER_ERROR, None
     
     def is_api_key_configured(self) -> bool:
