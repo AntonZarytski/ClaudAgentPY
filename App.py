@@ -29,6 +29,7 @@ from logger import setup_logging, get_logger
 from claude_client import ClaudeClient
 from token_counter import TokenCounter
 from prompts import get_system_prompt
+from history_compression import HistoryCompressor
 
 # Загрузка переменных окружения
 load_dotenv()
@@ -40,8 +41,9 @@ logger = get_logger(__name__)
 # Инициализация Flask приложения
 app = Flask(__name__, static_folder=STATIC_FOLDER, static_url_path=STATIC_URL_PATH)
 
-# Инициализация Claude клиента
+# Инициализация Claude клиента и компрессора истории
 claude_client = ClaudeClient()
+history_compressor = HistoryCompressor()
 
 
 @app.route('/')
@@ -130,6 +132,13 @@ def chat() -> Tuple[Response, int]:
 
     logger.info(f"Параметры: format={output_format}, max_tokens={max_tokens}, spec_mode={spec_mode}, history_len={len(conversation_history)}, temperature={temperature}")
 
+    # Сжимаем историю при необходимости
+    original_history_len = len(conversation_history)
+    if history_compressor.should_compress(conversation_history):
+        logger.info(f"Начинаем сжатие истории ({original_history_len} сообщений)...")
+        conversation_history = history_compressor.compress_history(conversation_history)
+        logger.info(f"История сжата: {original_history_len} -> {len(conversation_history)} сообщений")
+
     # Отправляем запрос к Claude API
     reply, error, status_code, usage = claude_client.send_message(
         user_message=user_message,
@@ -144,10 +153,18 @@ def chat() -> Tuple[Response, int]:
     if error:
         return jsonify(error), status_code
 
-    # Формируем ответ с информацией о токенах
+    # Формируем ответ с информацией о токенах и сжатой историей
     response_data = {'reply': reply}
     if usage:
         response_data['usage'] = usage
+
+    # Если история была сжата, возвращаем новую сжатую версию
+    if len(conversation_history) != original_history_len:
+        response_data['compressed_history'] = conversation_history
+        response_data['compression_applied'] = True
+        logger.info("Возвращаем сжатую историю в ответе")
+    else:
+        response_data['compression_applied'] = False
 
     return jsonify(response_data), HTTP_OK
 
