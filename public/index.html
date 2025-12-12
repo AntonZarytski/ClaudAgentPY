@@ -97,7 +97,6 @@
 
         .header-buttons {
           position: absolute;
-          right: 20px;
           top: 50%;
           transform: translateY(-50%);
           display: flex;
@@ -106,8 +105,19 @@
           z-index: 10;
         }
 
+        .header-buttons.left {
+          left: 20px; /* history button container */
+          right: auto;
+        }
+
+        .header-buttons.right {
+          right: 20px; /* tokens & settings container */
+          left: auto;
+        }
+
         .header-buttons .tokens-btn,
-        .header-buttons .settings-btn {
+        .header-buttons .settings-btn,
+        .header-buttons .history-btn {
           width: 40px;
           height: 40px;
           padding: 0;
@@ -125,7 +135,8 @@
         }
 
         .header-buttons .tokens-btn:hover,
-        .header-buttons .settings-btn:hover {
+        .header-buttons .settings-btn:hover,
+        .header-buttons .history-btn:hover {
           transform: translateY(-2px);
           box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
         }
@@ -598,8 +609,139 @@
           flex-shrink: 0;
         }
 
+        .history-panel {
+          position: fixed; /* anchored to the left */
+          top: 0;
+          left: 0;
+          right: auto;
+          width: 0;
+          height: 100vh; /* full screen height */
+          overflow: hidden;
+          background: white;
+          box-shadow: 5px 0 20px rgba(0, 0, 0, 0.1);
+          transition: width 0.3s ease;
+          display: flex;
+          flex-direction: column;
+          border-right: 1px solid rgba(0, 0, 0, 0.08);
+          flex-shrink: 0;
+          z-index: 9999; /* ensure it overlays content */
+        }
+
+        .history-panel.active {
+          width: 320px;
+          height: 100vh; /* ensure it occupies full height when opened */
+        }
+
         .settings-panel.active {
           width: 320px;
+        }
+
+        .history-panel.active {
+          width: 320px;
+          height: 100vh; /* ensure it occupies full height when opened */
+        }
+
+        /* История чатов - специфичные стили */
+        .history-list {
+          flex: 1;
+          overflow-y: auto;
+          padding: 16px;
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+
+        .history-item {
+          padding: 12px 16px;
+          background: #f9fafb;
+          border-radius: 12px;
+          border: 2px solid #e5e7eb;
+          cursor: pointer;
+          transition: all 0.2s;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .history-item:hover {
+          border-color: #6366f1;
+          background: #f5f3ff;
+        }
+
+        .history-item.active {
+          border-color: #6366f1;
+          background: linear-gradient(135deg, #eef2ff 0%, #f5f3ff 100%);
+        }
+
+        .history-item-content {
+          flex: 1;
+          min-width: 0;
+        }
+
+        .history-item-title {
+          font-size: 14px;
+          font-weight: 500;
+          color: #374151;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .history-item-date {
+          font-size: 11px;
+          color: #9ca3af;
+          margin-top: 4px;
+        }
+
+        .history-item-actions {
+          display: flex;
+          gap: 4px;
+        }
+
+        .history-item-delete {
+          padding: 4px 8px;
+          background: transparent;
+          border: none;
+          color: #dc2626;
+          font-size: 16px;
+          cursor: pointer;
+          border-radius: 6px;
+          transition: all 0.2s;
+        }
+
+        .history-item-delete:hover {
+          background: #fee2e2;
+        }
+
+        .new-chat-btn {
+          margin: 16px;
+          padding: 12px 16px;
+          background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+          color: white;
+          border: none;
+          border-radius: 12px;
+          font-size: 14px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.3s;
+          box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+        }
+
+        .new-chat-btn:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
+        }
+
+        .empty-history {
+          padding: 40px 20px;
+          text-align: center;
+          color: #9ca3af;
+        }
+
+        .empty-history-icon {
+          font-size: 48px;
+          margin-bottom: 16px;
         }
 
         .settings-header {
@@ -1018,6 +1160,13 @@
             width: 44px;
             height: 44px;
             font-size: 18px;
+          }
+
+          .history-panel.active {
+            width: 100%;
+            left: 0;
+            right: 0;
+            height: 100vh;
           }
         }
 
@@ -1531,7 +1680,12 @@
                 Claude AI Chat
                 <span class="status-indicator"></span>
             </h1>
-            <div class="header-buttons">
+            <div class="header-buttons left">
+                <button type="button" class="history-btn" onclick="toggleHistory()" id="historyBtn"
+                        aria-label="История чатов" title="История чатов">💬
+                </button>
+            </div>
+            <div class="header-buttons right">
                 <button type="button" class="tokens-btn" onclick="checkTokens()" id="checkTokensBtn"
                         aria-label="Подсчитать токены" title="Подсчитать токены">🔢
                 </button>
@@ -1648,6 +1802,23 @@
     </div>
 </div>
 
+<!-- History Panel - справа от чата -->
+<div class="history-panel" id="historyPanel">
+    <div class="settings-header">
+        <h2>💬 История чатов</h2>
+        <button class="close-btn" onclick="closeHistory()">×</button>
+    </div>
+    <button class="new-chat-btn" onclick="startNewChat()">
+        ➕ Новый чат
+    </button>
+    <div class="history-list" id="historyList">
+        <div class="empty-history">
+            <div class="empty-history-icon">💬</div>
+            <div>Нет сохраненных чатов</div>
+        </div>
+    </div>
+</div>
+
 <!-- Modal для отображения токенов -->
 <div class="modal-overlay" id="tokenModal">
     <div class="modal-content">
@@ -1692,11 +1863,21 @@
     // История диалога
     let conversationHistory = [];
 
+    // ID текущей сессии
+    let currentSessionId = generateSessionId();
+
     // Счётчик для уникальных ID блоков кода
     let codeBlockCounter = 0;
 
     // Счётчик сообщений до сжатия
     let messageCountSinceCompression = 0;
+
+    // Функция генерации уникального ID сессии
+    function generateSessionId() {
+      const timestamp = new Date().getTime();
+      const random = Math.random().toString(36).substring(2, 15);
+      return `session_${timestamp}_${random}`;
+    }
 
     // FIX: Флаг для отслеживания состояния клавиатуры
     let isKeyboardOpen = false;
@@ -1824,7 +2005,13 @@
     // FIX: Обновленные функции для открытия/закрытия панели настроек
     function toggleSettings() {
         const settingsPanel = document.getElementById('settingsPanel');
+        const historyPanel = document.getElementById('historyPanel');
         const isActive = settingsPanel.classList.contains('active');
+
+        // Закрываем историю если открыта
+        if (historyPanel.classList.contains('active')) {
+            closeHistory();
+        }
 
         if (isActive) {
             closeSettings();
@@ -1864,6 +2051,169 @@
             const closeBtn = settingsPanel.querySelector('.close-btn');
             if (closeBtn) closeBtn.focus();
         }, 100);
+    }
+
+    function toggleHistory() {
+        const historyPanel = document.getElementById('historyPanel');
+        const settingsPanel = document.getElementById('settingsPanel');
+        const isActive = historyPanel.classList.contains('active');
+
+        // Закрываем настройки если открыты
+        if (settingsPanel.classList.contains('active')) {
+            closeSettings();
+        }
+
+        if (isActive) {
+            closeHistory();
+        } else {
+            openHistory();
+        }
+    }
+
+    async function openHistory() {
+        const historyPanel = document.getElementById('historyPanel');
+        historyPanel.classList.add('active');
+
+        // Загружаем список сессий
+        await loadSessionsList();
+    }
+
+    function closeHistory() {
+        const historyPanel = document.getElementById('historyPanel');
+        historyPanel.classList.remove('active');
+    }
+
+    async function loadSessionsList() {
+        try {
+            const response = await fetch('/api/sessions');
+            const data = await response.json();
+            const sessions = data.sessions || [];
+
+            const historyList = document.getElementById('historyList');
+
+            if (sessions.length === 0) {
+                historyList.innerHTML = `
+                    <div class="empty-history">
+                        <div class="empty-history-icon">💬</div>
+                        <div>Нет сохраненных чатов</div>
+                    </div>
+                `;
+                return;
+            }
+
+            // Сортируем по дате обновления (новые сверху)
+            sessions.sort((a, b) => new Date(b.last_updated) - new Date(a.last_updated));
+
+            historyList.innerHTML = sessions.map(session => {
+                const date = new Date(session.last_updated);
+                const dateStr = date.toLocaleDateString('ru-RU') + ' ' + date.toLocaleTimeString('ru-RU', {hour: '2-digit', minute: '2-digit'});
+                const isActive = session.id === currentSessionId ? 'active' : '';
+
+                return `
+                    <div class="history-item ${isActive}" onclick="loadSession('${session.id}')">
+                        <div class="history-item-content">
+                            <div class="history-item-title">${escapeHtml(session.title)}</div>
+                            <div class="history-item-date">${dateStr}</div>
+                        </div>
+                        <div class="history-item-actions">
+                            <button class="history-item-delete" onclick="event.stopPropagation(); deleteSession('${session.id}')" title="Удалить">
+                                🗑️
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            console.log(`📋 Загружено ${sessions.length} сессий`);
+        } catch (error) {
+            console.error('Ошибка загрузки списка сессий:', error);
+            const historyList = document.getElementById('historyList');
+            historyList.innerHTML = `
+                <div class="empty-history">
+                    <div class="empty-history-icon">❌</div>
+                    <div>Ошибка загрузки</div>
+                </div>
+            `;
+        }
+    }
+
+    async function loadSession(sessionId) {
+        try {
+            console.log(`📥 Загрузка сессии: ${sessionId}`);
+
+            const response = await fetch(`/api/sessions/${sessionId}`);
+            const data = await response.json();
+
+            // Очищаем текущий чат
+            chat.innerHTML = '';
+            conversationHistory = [];
+            messageCountSinceCompression = 0;
+
+            // Загружаем историю
+            const history = data.history || [];
+            for (const msg of history) {
+                addMessage(msg.role, msg.content, false);
+            }
+
+            // Обновляем текущий session_id
+            currentSessionId = sessionId;
+
+            // Закрываем панель истории
+            closeHistory();
+
+            console.log(`✅ Загружено ${history.length} сообщений из сессии ${sessionId}`);
+        } catch (error) {
+            console.error('Ошибка загрузки сессии:', error);
+            alert('Не удалось загрузить сессию');
+        }
+    }
+
+    async function deleteSession(sessionId) {
+        if (!confirm('Удалить этот чат?')) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/sessions/${sessionId}`, {
+                method: 'DELETE'
+            });
+
+            if (response.ok) {
+                console.log(`🗑️ Сессия ${sessionId} удалена`);
+
+                // Если удалили текущую сессию, начинаем новую
+                if (sessionId === currentSessionId) {
+                    startNewChat();
+                }
+
+                // Перезагружаем список
+                await loadSessionsList();
+            } else {
+                throw new Error('Не удалось удалить сессию');
+            }
+        } catch (error) {
+            console.error('Ошибка удаления сессии:', error);
+            alert('Не удалось удалить сессию');
+        }
+    }
+
+    function startNewChat() {
+        // Очищаем текущий чат
+        chat.innerHTML = '';
+        conversationHistory = [];
+        messageCountSinceCompression = 0;
+
+        // Генерируем новый session ID
+        currentSessionId = generateSessionId();
+
+        console.log('🆕 Начат новый чат');
+        console.log('🔑 Новый Session ID:', currentSessionId);
+
+        // Закрываем панель истории
+        closeHistory();
+
+        // Показываем приветственное сообщение
+        addMessage('assistant', 'Новый чат начат! Чем могу помочь? 🙂', false);
     }
 
     function closeSettings() {
@@ -1943,7 +2293,9 @@
     function clearHistory() {
       conversationHistory = [];
       messageCountSinceCompression = 0;
+      currentSessionId = generateSessionId();
       console.log('🗑️ История очищена. Счётчик сообщений сброшен.');
+      console.log('🆕 Новый Session ID:', currentSessionId);
       chat.innerHTML = '';
       addMessage('assistant', 'История очищена. Начнём новый диалог! 🙂', false);
       closeSettings();
@@ -2084,6 +2436,7 @@
       console.log('Отправлять историю:', sendHistory);
       console.log('История:', conversationHistory.length, 'сообщений');
       console.log('📊 Сообщений с момента последнего сжатия:', messageCountSinceCompression);
+      console.log('🔑 Session ID:', currentSessionId);
 
       // Добавляем сообщение пользователя
       addMessage('user', text);
@@ -2101,6 +2454,19 @@
       showLoadingIndicator();
 
       try {
+        // Создаем сессию при первом сообщении
+        if (conversationHistory.length === 1) {
+          await fetch('/api/sessions', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+              session_id: currentSessionId,
+              title: text.substring(0, 50) + (text.length > 50 ? '...' : '')
+            })
+          });
+          console.log('✨ Новая сессия создана:', currentSessionId);
+        }
+
         // Формируем историю для отправки
         // Если sendHistory выключен — отправляем пустой массив
         const historyToSend = sendHistory ? conversationHistory.slice(0, -1) : [];
@@ -2110,6 +2476,7 @@
           headers: {'Content-Type': 'application/json'},
           body: JSON.stringify({
             message: text,
+            session_id: currentSessionId,
             output_format: settings.output_format,
             max_tokens: settings.max_tokens,
             spec_mode: settings.spec_mode,
@@ -2488,9 +2855,27 @@
       }
     });
 
-    // Приветственное сообщение (не добавляем в историю)
-    addMessage('assistant', 'Привет! Я твой локальный Claude-агент. Нажми ⚙️ для настроек. Спроси что-нибудь 🙂', false);
-    input.focus();
+    // При загрузке страницы - начинаем новый чат
+    async function initializeApp() {
+        // Генерируем новый session ID при каждой перезагрузке страницы
+        currentSessionId = generateSessionId();
+
+        // Очищаем чат
+        chat.innerHTML = '';
+        conversationHistory = [];
+        messageCountSinceCompression = 0;
+
+        // Показываем приветственное сообщение (не добавляем в историю)
+        addMessage('assistant', 'Привет! Я твой локальный Claude-агент. Нажми 💬 для истории чатов. Нажми ⚙️ для настроек. Спроси что-нибудь 🙂', false);
+
+        console.log('🆕 Приложение инициализировано. Новый чат начат');
+        console.log('🔑 Session ID:', currentSessionId);
+
+        input.focus();
+    }
+
+    // Инициализируем приложение
+    initializeApp();
 
     // FIX: Инициализируем систему предотвращения сдвигов
     initScrollPrevention();

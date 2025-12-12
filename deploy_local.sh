@@ -69,11 +69,19 @@ check_local_files() {
     fi
 
     if [ ! -f "token_counter.py" ]; then
-           missing_files+=("token_counter.py")
+        missing_files+=("token_counter.py")
     fi
 
     if [ ! -f "history_compression.py" ]; then
-              missing_files+=("history_compression.py")
+        missing_files+=("history_compression.py")
+    fi
+
+    if [ ! -f "conversations.db" ]; then
+        missing_files+=("conversations.db")
+    fi
+
+    if [ ! -f "database.py" ]; then
+        missing_files+=("database.py")
     fi
 
     # Фронтенд
@@ -162,6 +170,20 @@ deploy_files() {
         print_success "history_compression.py скопирован"
     else
         print_error "Ошибка копирования history_compression.py"
+        exit 1
+    fi
+
+    if scp -q conversations.db ${SERVER}:${REMOTE_DIR}/; then
+        print_success "conversations.db скопирован"
+    else
+        print_error "Ошибка копирования conversations.db"
+        exit 1
+    fi
+
+    if scp -q database.py ${SERVER}:${REMOTE_DIR}/; then
+        print_success "database.py скопирован"
+    else
+        print_error "Ошибка копирования database.py"
         exit 1
     fi
 
