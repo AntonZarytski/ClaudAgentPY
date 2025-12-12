@@ -6,6 +6,7 @@ Flask приложение для чат-бота на основе Claude API.
 """
 
 import os
+import json
 import traceback
 from datetime import datetime
 from typing import Tuple, Dict, Any, List
@@ -31,6 +32,7 @@ from claude_client import ClaudeClient
 from token_counter import TokenCounter
 from prompts import get_system_prompt
 from history_compression import HistoryCompressor
+from database import ConversationDatabase
 
 # Загрузка переменных окружения
 load_dotenv()
@@ -42,9 +44,10 @@ logger = get_logger(__name__)
 # Инициализация Flask приложения
 app = Flask(__name__, static_folder=STATIC_FOLDER, static_url_path=STATIC_URL_PATH)
 
-# Инициализация Claude клиента и компрессора истории
+# Инициализация Claude клиента, компрессора истории и базы данных
 claude_client = ClaudeClient()
 history_compressor = HistoryCompressor()
+db = ConversationDatabase()
 
 
 def build_messages(conversation_history: List[Dict[str, str]], user_message: str) -> List[Dict[str, str]]:
@@ -117,6 +120,7 @@ def chat() -> Tuple[Response, int]:
 
     Request JSON:
         message (str): Сообщение пользователя
+        session_id (str, optional): ID сессии для сохранения истории
         output_format (str, optional): Формат вывода ('default', 'json', 'xml')
         max_tokens (int, optional): Максимальное количество токенов (128-4096)
         spec_mode (bool, optional): Режим сбора уточняющих данных
@@ -136,13 +140,18 @@ def chat() -> Tuple[Response, int]:
 
     # Извлекаем и валидируем параметры
     user_message = data.get('message', '')
+    session_id = data.get('session_id')
     output_format = data.get('output_format', 'default')
     max_tokens = validate_and_clamp(data.get('max_tokens', MAX_TOKENS), MAX_TOKENS, 128, 4096, int)
     temperature = validate_and_clamp(data.get('temperature', 1.0), 1.0, 0.0, 1.0, (int, float))
     spec_mode = data.get('spec_mode', False) if isinstance(data.get('spec_mode'), bool) else False
     conversation_history = data.get('conversation_history', []) if isinstance(data.get('conversation_history'), list) else []
 
-    logger.info(f"Параметры: format={output_format}, max_tokens={max_tokens}, spec_mode={spec_mode}, history_len={len(conversation_history)}, temperature={temperature}")
+    logger.info(f"Параметры: format={output_format}, max_tokens={max_tokens}, spec_mode={spec_mode}, history_len={len(conversation_history)}, temperature={temperature}, session_id={session_id}")
+
+    # Сохраняем сообщение пользователя в БД
+    if session_id:
+        db.save_message(session_id, 'user', user_message)
 
     # Сжимаем историю при необходимости
     original_history_len = len(conversation_history)
@@ -164,6 +173,10 @@ def chat() -> Tuple[Response, int]:
     # Возвращаем результат
     if error:
         return jsonify(error), status_code
+
+    # Сохраняем ответ ассистента в БД
+    if session_id:
+        db.save_message(session_id, 'assistant', reply)
 
     # Формируем ответ с информацией о токенах и сжатой историей
     response_data = {'reply': reply}
@@ -225,6 +238,101 @@ def health() -> Tuple[Response, int]:
     except Exception as e:
         logger.error(f"Ошибка в /health: {e}")
         return jsonify({'status': 'error', 'message': str(e)}), HTTP_INTERNAL_SERVER_ERROR
+
+
+# === API endpoints для работы с сессиями ===
+
+@app.route('/api/sessions', methods=['GET'])
+def get_sessions() -> Tuple[Response, int]:
+    """Возвращает список всех сессий."""
+    try:
+        sessions = db.get_all_sessions()
+        return jsonify({'sessions': sessions}), HTTP_OK
+    except Exception as e:
+        logger.error(f"Ошибка получения списка сессий: {e}")
+        return jsonify({'error': str(e)}), HTTP_INTERNAL_SERVER_ERROR
+
+
+@app.route('/api/sessions/<session_id>', methods=['GET'])
+def get_session(session_id: str) -> Tuple[Response, int]:
+    """Возвращает историю конкретной сессии."""
+    try:
+        history = db.get_session_history(session_id)
+        stats = db.get_session_stats(session_id)
+        return jsonify({
+            'session_id': session_id,
+            'history': history,
+            'stats': stats
+        }), HTTP_OK
+    except Exception as e:
+        logger.error(f"Ошибка получения сессии {session_id}: {e}")
+        return jsonify({'error': str(e)}), HTTP_INTERNAL_SERVER_ERROR
+
+
+@app.route('/api/sessions', methods=['POST'])
+def create_session() -> Tuple[Response, int]:
+    """Создает новую сессию."""
+    try:
+        data = request.get_json() or {}
+        session_id = data.get('session_id')
+        title = data.get('title', 'Новый диалог')
+
+        if not session_id:
+            return jsonify({'error': 'session_id обязателен'}), HTTP_BAD_REQUEST
+
+        success = db.create_session(session_id, title)
+        if success:
+            return jsonify({'session_id': session_id, 'title': title}), HTTP_OK
+        else:
+            return jsonify({'error': 'Сессия уже существует'}), HTTP_BAD_REQUEST
+
+    except Exception as e:
+        logger.error(f"Ошибка создания сессии: {e}")
+        return jsonify({'error': str(e)}), HTTP_INTERNAL_SERVER_ERROR
+
+
+@app.route('/api/sessions/<session_id>', methods=['DELETE'])
+def delete_session(session_id: str) -> Tuple[Response, int]:
+    """Удаляет сессию."""
+    try:
+        success = db.delete_session(session_id)
+        if success:
+            return jsonify({'message': 'Сессия удалена'}), HTTP_OK
+        else:
+            return jsonify({'error': 'Ошибка удаления'}), HTTP_INTERNAL_SERVER_ERROR
+    except Exception as e:
+        logger.error(f"Ошибка удаления сессии {session_id}: {e}")
+        return jsonify({'error': str(e)}), HTTP_INTERNAL_SERVER_ERROR
+
+
+@app.route('/api/sessions/<session_id>/export', methods=['GET'])
+def export_session(session_id: str) -> Tuple[Response, int]:
+    """Экспортирует сессию в JSON."""
+    try:
+        import tempfile
+
+        # Создаем временный файл
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as tmp:
+            tmp_path = tmp.name
+
+        # Экспортируем в файл
+        success = db.export_to_json(session_id, tmp_path)
+
+        if not success:
+            return jsonify({'error': 'Сессия не найдена'}), HTTP_BAD_REQUEST
+
+        # Читаем и возвращаем содержимое
+        with open(tmp_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+
+        # Удаляем временный файл
+        os.remove(tmp_path)
+
+        return jsonify(data), HTTP_OK
+
+    except Exception as e:
+        logger.error(f"Ошибка экспорта сессии {session_id}: {e}")
+        return jsonify({'error': str(e)}), HTTP_INTERNAL_SERVER_ERROR
 
 
 def main() -> None:
